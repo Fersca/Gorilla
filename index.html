@@ -474,7 +474,8 @@
     scenKey: "ciudad",
     level: 1,
     tries: 0,
-    wind: 0,                     // aceleración horizontal (eje x) u/s²
+    wind: 0,                     // componente adelante/atrás (eje x) u/s²
+    windZ: 0,                    // componente lateral (eje z) u/s²
     windEnabled: true,           // botón 💨 del HUD
     banana: null,                // proyectil en vuelo {x,y,z,py,vx,vy,vz}
     celebrating: false,
@@ -3197,16 +3198,19 @@
   }
   scene.add(leafGroup);
   function updateLeaves(dt) {
-    const show = state.wind !== 0;
+    const show = state.wind !== 0 || state.windZ !== 0;
     leafGroup.visible = show;
     if (!show) return;
     for (const l of leaves) {
       l.m.position.x += state.wind * 2.4 * l.fac * dt;
+      l.m.position.z += state.windZ * 2.4 * l.fac * dt;
       l.m.position.y = l.baseY + Math.sin(state.time * 1.7 + l.ph) * 1.2;
       l.m.rotation.x += dt * l.spin;
       l.m.rotation.y += dt * l.spin * 0.7;
       if (l.m.position.x > 80) l.m.position.x = -80;
       if (l.m.position.x < -80) l.m.position.x = 80;
+      if (l.m.position.z > 30) l.m.position.z = -36;
+      if (l.m.position.z < -36) l.m.position.z = 30;
     }
   }
 
@@ -3295,6 +3299,7 @@
     const step = 0.07;
     for (let i = 0; i < AIM_N; i++) {
       vx += state.wind * step;
+      vz += state.windZ * step;
       vy -= CFG.gravity * step;
       x += vx * step;
       y += vy * step;
@@ -3481,20 +3486,28 @@
     activeThrower().position.set(state.thrower.x, 0, state.thrower.z);
   }
 
-  // ON = sopla siempre (se nota y se ven las hojas); OFF = tiro limpio
+  // ON = sopla siempre (se nota y se ven las hojas); OFF = tiro limpio.
+  // El viento es un vector: empuja adelante/atrás (x) Y hacia los costados (z).
   function setWind() {
     if (!state.windEnabled) {
       state.wind = 0;
+      state.windZ = 0;
       ui.windChip.style.display = "none";
       return;
     }
     // el viento crece con el nivel: más fuerte y con piso más alto
     const max = Math.min(8, 1 + state.level * 0.9);
     const minMag = Math.min(0.8 + state.level * 0.3, max * 0.7);
-    state.wind = (Math.random() < 0.5 ? -1 : 1) * rand(minMag, max);
+    const mag = rand(minMag, max);
+    const dir = rand(0, Math.PI * 2);
+    state.wind = Math.cos(dir) * mag;
+    state.windZ = Math.sin(dir) * mag;
     ui.windChip.style.display = "flex";
-    ui.windTxt.textContent = Math.round(Math.abs(state.wind) * 10);
-    ui.windArrow.textContent = state.wind > 0 ? "→" : "←";
+    ui.windTxt.textContent = Math.round(mag * 10);
+    // flecha de 8 rumbos en coordenadas de pantalla (+x derecha, -z arriba/fondo)
+    const a = Math.atan2(-state.windZ, state.wind);
+    const dirs = ["→", "↗", "↑", "↖", "←", "↙", "↓", "↘"];
+    ui.windArrow.textContent = dirs[((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8];
   }
 
   function newLevel(first = false) {
@@ -3648,6 +3661,7 @@
     const b = state.banana;
     b.px = b.x; b.py = b.y; b.pz = b.z;
     b.vx += state.wind * dt;
+    b.vz += state.windZ * dt;
     b.vy -= CFG.gravity * dt;
     b.x += b.vx * dt;
     b.y += b.vy * dt;
