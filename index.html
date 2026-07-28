@@ -433,8 +433,21 @@
       sub: "Estadio lleno: el aro no se mueve… vos sí 🏀",
       moveMsg: "Cambiaste de posición en la cancha… ¡encestá! 🏀",
     },
+    futbol: {
+      name: "Fútbol", emoji: "⚽", next: "ciudad",
+      fog: 0x453a75,
+      skyStops: [[0, "#070a1c"], [0.26, "#1a2050"], [0.44, "#4a3a80"], [0.52, "#8a4a7d"], [1, "#8a4a7d"]],
+      groundColor: 0x14260f,
+      thrower: "futbol", projectile: "soccer", target: "goal", targetMesh: "goal",
+      handOffset: { x: 2.2, y: 1.3 },   // patea desde el piso
+      rimR: 0,
+      randomEnv: false,
+      throwLabel: "⚽ ¡PATEAR!",
+      sub: "Tiro libre: esquivá la barrera y al arquero ⚽",
+      moveMsg: "Más lejos, más barrera y arco más chico 😅 ⚽",
+    },
     arquero: {
-      name: "Arquero", emoji: "🏹", next: "ciudad",
+      name: "Arquero", emoji: "🏹", next: "futbol",
       fog: 0x48604e,
       skyStops: [[0, "#0a1420"], [0.26, "#173442"], [0.44, "#2e5a50"], [0.52, "#5d7a55"], [1, "#5d7a55"]],
       groundColor: 0x1d3312,
@@ -462,6 +475,8 @@
     gorillaYaw: 0,               // giro animado del lanzador (radianes)
     thrower: { x: -38, z: 0 },
     basket: { x: 20, z: 0, baseY: 0, rimY: CFG.basketH, pedestalH: 0, rimR: 3.1 },
+    gk: { z: 0, half: 1.8, h: 7 },       // arquero de fútbol
+    wall: { n: 0, x: 0, z: 0, half: 0 }, // barrera
   };
   const scen = () => SCENARIOS[state.scenKey];
 
@@ -582,6 +597,9 @@
     } else if (kind === "rock") {
       whoosh(0.4, 90, 380, 0.36, 0, "lowpass"); // piedra: aire grave
       plop(90, 55, 0.12, 0.18);
+    } else if (kind === "soccer") {
+      plop(140, 70, 0.09, 0.4);                 // ¡pum! del botín
+      whoosh(0.3, 250, 900, 0.26);
     } else {
       whoosh(0.28, 500, 1700, 0.24);           // banana: silbido agudo
       beep(520, 0.07, "triangle", 0.05, 0.03);
@@ -603,6 +621,10 @@
       // ¡thock! de la flecha clavándose en la paja
       plop(240, 75, 0.08, 0.38);
       whoosh(0.12, 900, 280, 0.3, 0, "lowpass");
+    } else if (targetMesh === "goal") {
+      // la red + rugido de la tribuna
+      whoosh(0.18, 1800, 600, 0.25, 0, "bandpass", 2);
+      whoosh(1.2, 350, 900, 0.35, 0.12, "bandpass", 0.6);
     } else {
       // plop en el mimbre
       plop(330, 85, 0.2, 0.32);
@@ -1333,12 +1355,81 @@
     }
   }
 
+  // ---------- cancha de fútbol ----------
+  function pitchTexture() {
+    const W = 1024, H = 640;
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    // franjas de césped
+    for (let i = 0; i < 8; i++) {
+      g.fillStyle = i % 2 ? "#2e7d32" : "#256b28";
+      g.fillRect(i * W / 8, 0, W / 8, H);
+    }
+    g.strokeStyle = "rgba(255,255,255,.9)";
+    g.lineWidth = 6;
+    g.strokeRect(30, 30, W - 60, H - 60);
+    // mitad de cancha y círculo central
+    g.beginPath(); g.moveTo(W / 2, 30); g.lineTo(W / 2, H - 30); g.stroke();
+    g.beginPath(); g.arc(W / 2, H / 2, 85, 0, Math.PI * 2); g.stroke();
+    // áreas en ambos arcos
+    for (const end of [0, 1]) {
+      const bx = end === 0 ? 30 : W - 30;
+      const dir = end === 0 ? 1 : -1;
+      g.strokeRect(Math.min(bx, bx + dir * 160), H / 2 - 130, 160, 260);
+      g.strokeRect(Math.min(bx, bx + dir * 60), H / 2 - 65, 60, 130);
+      g.beginPath();
+      g.arc(bx + dir * 110, H / 2, 4, 0, Math.PI * 2);
+      g.fillStyle = "rgba(255,255,255,.9)";
+      g.fill();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    tex.anisotropy = 4;
+    return tex;
+  }
+
+  function buildPitch(group) {
+    buildStands(group);
+    const pitch = new THREE.Mesh(
+      new THREE.PlaneGeometry(112, 70),
+      new THREE.MeshStandardMaterial({ map: pitchTexture(), roughness: 0.95 })
+    );
+    pitch.rotation.x = -Math.PI / 2;
+    pitch.position.set(0, 0.06, 0);
+    pitch.receiveShadow = true;
+    group.add(pitch);
+    // luminarias (como la cancha de básquet)
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0x3a4048, roughness: 0.6 });
+    const glowMap = glowTexture("rgba(255,240,200,.9)", "rgba(255,240,200,0)");
+    for (const [lx, lz] of [[-34, -37], [34, -37]]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 22, 8), lampMat);
+      pole.position.set(lx, 11, lz);
+      pole.castShadow = true;
+      group.add(pole);
+      const lamp = new THREE.Mesh(
+        new THREE.SphereGeometry(0.9, 10, 8),
+        new THREE.MeshBasicMaterial({ color: 0xfff2cc, toneMapped: false })
+      );
+      lamp.position.set(lx, 22.2, lz);
+      group.add(lamp);
+      const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowMap, transparent: true, depthWrite: false }));
+      gl.scale.set(14, 14, 1);
+      gl.position.set(lx, 22.2, lz);
+      group.add(gl);
+      const pl = new THREE.PointLight(0xfff0d0, 0.5, 90, 1.6);
+      pl.position.set(lx, 21, lz);
+      group.add(pl);
+    }
+  }
+
   let envGroup = null;
   function makeEnv() {
     if (envGroup) { scene.remove(envGroup); disposeGroup(envGroup); }
     envGroup = new THREE.Group();
     const sc = scen();
     if (sc.thrower === "player") buildCourt(envGroup);
+    else if (sc.thrower === "futbol") buildPitch(envGroup);
     else if (state.scenKey === "selva") buildJungle(envGroup);
     else if (state.scenKey === "arquero") buildForest(envGroup);
     else buildCity(envGroup);
@@ -1652,8 +1743,183 @@
   archer.add(archerArm);
   scene.add(archer);
 
-  const THROWERS = { gorilla, player, police, archer };
-  const ARMS = { gorilla: gorillaArm, player: playerArm, police: policeArm, archer: archerArm };
+  // ---------- futbolista ----------
+  function stripesTexture(c1, c2) {
+    const c = document.createElement("canvas");
+    c.width = 64; c.height = 64;
+    const g = c.getContext("2d");
+    for (let i = 0; i < 8; i++) {
+      g.fillStyle = i % 2 ? c1 : c2;
+      g.fillRect(i * 8, 0, 8, 64);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  }
+  const fJersey = new THREE.MeshStandardMaterial({ map: stripesTexture("#7cc4ff", "#f2f6ff"), roughness: 0.85 });
+  const fShorts = new THREE.MeshStandardMaterial({ color: 0x1a1f2e, roughness: 0.85 });
+  const fSkin = new THREE.MeshStandardMaterial({ color: 0xc98d5f, roughness: 0.7 });
+  const fHair = new THREE.MeshStandardMaterial({ color: 0x2a1d10, roughness: 0.9 });
+  const fShoe = new THREE.MeshStandardMaterial({ color: 0x16181d, roughness: 0.6 });
+
+  const futbol = new THREE.Group();
+  {
+    // pierna de apoyo
+    const legL = new THREE.Mesh(new THREE.CapsuleGeometry(0.48, 3.2, 6, 12), fSkin);
+    legL.position.set(-0.85, 2.6, 0);
+    legL.castShadow = true;
+    futbol.add(legL);
+    const shoeL = sphere(0.62, fShoe, 1.1, 0.55, 1.5);
+    shoeL.position.set(-0.85, 0.35, 0.25);
+    futbol.add(shoeL);
+    const shorts = sphere(1.35, fShorts, 1.05, 0.85, 0.85);
+    shorts.position.set(0, 4.9, 0);
+    futbol.add(shorts);
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(1.25, 2.6, 6, 14), fJersey);
+    torso.position.set(0, 7.3, 0);
+    torso.castShadow = true;
+    futbol.add(torso);
+    const head = sphere(1.02, fSkin);
+    head.position.set(0, 10.5, 0.1);
+    futbol.add(head);
+    const hair = sphere(1.02, fHair, 1.02, 0.62, 1.02);
+    hair.position.set(0, 10.95, -0.05);
+    futbol.add(hair);
+    // número 10
+    const nc = document.createElement("canvas");
+    nc.width = nc.height = 64;
+    const ng = nc.getContext("2d");
+    ng.fillStyle = "#1a1f2e";
+    ng.font = "bold 42px sans-serif";
+    ng.textAlign = "center";
+    ng.fillText("10", 32, 47);
+    const num = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.3, 1.3),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc), transparent: true })
+    );
+    num.position.set(0, 7.7, 1.32);
+    futbol.add(num);
+    // brazos relajados
+    for (const sx of [-1.75, 1.75]) {
+      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 3.2, 6, 12), fSkin);
+      arm.geometry.translate(0, -1.9, 0);
+      arm.position.set(sx, 8.9, 0.15);
+      arm.rotation.z = sx < 0 ? -0.3 : 0.3;
+      arm.castShadow = true;
+      futbol.add(arm);
+    }
+  }
+  // pierna derecha: la que patea (animada como "brazo" del lanzador)
+  const futbolLeg = new THREE.Group();
+  futbolLeg.position.set(0.85, 5.6, 0);
+  {
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.48, 3.2, 6, 12), fSkin);
+    leg.geometry.translate(0, -2.1, 0);
+    leg.castShadow = true;
+    futbolLeg.add(leg);
+  }
+  const futbolFoot = sphere(0.62, fShoe, 1.1, 0.55, 1.5);
+  futbolFoot.position.set(0, -4.4, 0.25);
+  futbolLeg.add(futbolFoot);
+  futbol.add(futbolLeg);
+  scene.add(futbol);
+
+  // ---------- arquero (obstáculo) ----------
+  const gkJersey = new THREE.MeshStandardMaterial({ color: 0xff9d2e, roughness: 0.85 });
+  const gkGroup = new THREE.Group();
+  {
+    for (const sx of [-0.7, 0.7]) {
+      const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 2.4, 6, 10), fShorts);
+      leg.position.set(sx, 1.9, 0);
+      leg.castShadow = true;
+      gkGroup.add(leg);
+    }
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(1.1, 2.2, 6, 12), gkJersey);
+    torso.position.set(0, 4.6, 0);
+    torso.castShadow = true;
+    gkGroup.add(torso);
+    const head = sphere(0.85, fSkin);
+    head.position.set(0, 7.1, 0.05);
+    gkGroup.add(head);
+    // brazos abiertos en cruz + guantes
+    for (const sx of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.36, 2.6, 6, 10), gkJersey);
+      arm.geometry.translate(0, -1.6, 0);
+      arm.position.set(sx * 1.3, 5.6, 0);
+      arm.rotation.z = sx * Math.PI / 2.15;
+      arm.castShadow = true;
+      gkGroup.add(arm);
+      const glove = sphere(0.5, new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.7 }));
+      glove.position.set(sx * 4.4, 6.2, 0);
+      gkGroup.add(glove);
+    }
+  }
+  scene.add(gkGroup);
+
+  // ---------- barrera de rivales ----------
+  const wallJersey = new THREE.MeshStandardMaterial({ color: 0xe04b3a, roughness: 0.85 });
+  function makeWallDummy() {
+    const d = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.95, 3.6, 6, 12), wallJersey);
+    body.position.y = 3.6;
+    body.castShadow = true;
+    d.add(body);
+    const head = sphere(0.8, fSkin);
+    head.position.set(0, 6.6, 0);
+    d.add(head);
+    // manos protegiendo (brazos al frente-arriba)
+    for (const sx of [-0.6, 0.6]) {
+      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 2, 6, 8), wallJersey);
+      arm.geometry.translate(0, 1.2, 0);
+      arm.position.set(sx, 5.4, 0.4);
+      arm.rotation.x = -0.25;
+      d.add(arm);
+    }
+    return d;
+  }
+  const wallDummies = [];
+  for (let i = 0; i < 6; i++) {
+    const d = makeWallDummy();
+    d.visible = false;
+    scene.add(d);
+    wallDummies.push(d);
+  }
+
+  // ---------- arco de fútbol (se reconstruye por nivel: cambia el tamaño) ----------
+  const goalGroup = new THREE.Group();
+  scene.add(goalGroup);
+  function buildGoal(halfW, h) {
+    while (goalGroup.children.length) {
+      const ch = goalGroup.children.pop();
+      disposeGroup(ch);
+      goalGroup.remove(ch);
+    }
+    const postMat = new THREE.MeshStandardMaterial({ color: 0xf2f6ff, roughness: 0.4 });
+    for (const sz of [-halfW, halfW]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, h, 10), postMat);
+      post.position.set(0, h / 2, sz);
+      post.castShadow = true;
+      goalGroup.add(post);
+    }
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, halfW * 2 + 0.56, 10), postMat);
+    bar.rotation.x = Math.PI / 2;
+    bar.position.set(0, h, 0);
+    bar.castShadow = true;
+    goalGroup.add(bar);
+    // red
+    const netMat = new THREE.MeshBasicMaterial({ color: 0xdfe8f2, wireframe: true, transparent: true, opacity: 0.35 });
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(halfW * 2, h, 10, 4), netMat);
+    back.rotation.y = Math.PI / 2;
+    back.position.set(2.6, h / 2, 0);
+    goalGroup.add(back);
+    const top = new THREE.Mesh(new THREE.PlaneGeometry(2.6, halfW * 2, 3, 10), netMat);
+    top.rotation.x = -Math.PI / 2;
+    top.position.set(1.3, h, 0);
+    goalGroup.add(top);
+  }
+
+  const THROWERS = { gorilla, player, police, archer, futbol };
+  const ARMS = { gorilla: gorillaArm, player: playerArm, police: policeArm, archer: archerArm, futbol: futbolLeg };
   const activeThrower = () => THROWERS[scen().thrower];
   const activeArm = () => ARMS[scen().thrower];
 
@@ -1730,6 +1996,38 @@
     return g;
   }
 
+  function soccerTexture() {
+    const c = document.createElement("canvas");
+    c.width = 256; c.height = 128;
+    const g = c.getContext("2d");
+    g.fillStyle = "#f2f4f8"; g.fillRect(0, 0, 256, 128);
+    g.fillStyle = "#1c1f26";
+    for (let i = 0; i < 12; i++) {
+      const x = (i % 4) * 64 + (i % 2 ? 34 : 12);
+      const y = ((i / 4) | 0) * 42 + 14;
+      g.beginPath();
+      for (let k = 0; k < 5; k++) {
+        const a = k / 5 * Math.PI * 2 - Math.PI / 2;
+        const px = x + Math.cos(a) * 13, py = y + Math.sin(a) * 13;
+        k ? g.lineTo(px, py) : g.moveTo(px, py);
+      }
+      g.closePath();
+      g.fill();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  }
+  function makeSoccerBall(scale = 1) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.95, 20, 16),
+      new THREE.MeshStandardMaterial({ map: soccerTexture(), roughness: 0.55 })
+    );
+    m.castShadow = true;
+    m.scale.setScalar(scale);
+    return m;
+  }
+
   function makeRock(scale = 1) {
     const m = new THREE.Mesh(
       new THREE.IcosahedronGeometry(0.85, 1),
@@ -1756,6 +2054,10 @@
   arrowFly.rotation.order = "YZX";
   arrowFly.visible = false;
   scene.add(arrowFly);
+  const soccerFly = makeSoccerBall(1.1);
+  soccerFly.rotation.order = "YZX";
+  soccerFly.visible = false;
+  scene.add(soccerFly);
 
   const bananaHand = makeBanana(0.7);
   bananaHand.position.set(0, -0.4, 0.9);
@@ -1770,9 +2072,13 @@
   arrowHand.position.set(0.3, -0.3, 0.5);
   arrowHand.rotation.z = 1.15;   // la sostiene apuntando arriba-adelante
   archerHand.add(arrowHand);
+  // la pelota descansa en el pasto, delante del pie
+  const soccerRest = makeSoccerBall(1.0);
+  soccerRest.position.set(2.2, 0.95, 0);
+  futbol.add(soccerRest);
 
-  const FLY = { banana: bananaFly, ball: ballFly, rock: rockFly, arrow: arrowFly };
-  const HAND = { banana: bananaHand, ball: ballHand, rock: rockHand, arrow: arrowHand };
+  const FLY = { banana: bananaFly, ball: ballFly, rock: rockFly, arrow: arrowFly, soccer: soccerFly };
+  const HAND = { banana: bananaHand, ball: ballHand, rock: rockHand, arrow: arrowHand, soccer: soccerRest };
   const flyItem = () => FLY[scen().projectile];
   const handItem = () => HAND[scen().projectile];
 
@@ -2253,6 +2559,50 @@
       pedestal.visible = pedestalCap.visible = false;
       bullseyeGroup.position.set(k.x, 0, k.z);
       bullseyeGroup.rotation.y = k.rot;
+    } else if (sc.target === "goal") {
+      // fútbol: el arco es fijo pero se achica; el pateador se aleja
+      // y aparece una barrera cada vez más larga
+      k.x = 42; k.z = 0;
+      k.rot = 0;
+      k.pedestalH = 0;
+      pedestal.visible = pedestalCap.visible = false;
+      k.gw = Math.max(5.5, 11.5 - state.level * 0.8);   // medio ancho del arco
+      k.gh = Math.max(6, 9.5 - state.level * 0.4);      // altura
+      k.rimY = k.gh;                                    // para la flecha indicadora
+      buildGoal(k.gw, k.gh);
+      goalGroup.position.set(k.x, 0, k.z);
+      // pateador
+      const dist = Math.min(72, 22 + state.level * 6);
+      const zAmp = Math.min(24, 3 + state.level * 4);
+      state.thrower.z = rand(-zAmp, zAmp);
+      state.thrower.x = Math.max(-42, k.x - rand(dist * 0.75, dist));
+      // arquero: tapa una zona distinta del arco en cada nivel
+      const gkScale = k.gh / 9.5;
+      gkGroup.scale.setScalar(gkScale);
+      state.gk.z = k.z + rand(-(k.gw - 2.2), k.gw - 2.2);
+      state.gk.half = 1.9 * gkScale + 0.5;
+      state.gk.h = 7.6 * gkScale;
+      gkGroup.position.set(k.x - 1, 0, state.gk.z);
+      // barrera desde el nivel 2, más larga con el nivel
+      const w = state.wall;
+      w.n = state.level < 2 ? 0 : Math.min(6, 1 + ((state.level / 2) | 0));
+      if (w.n > 0) {
+        w.x = Math.min(state.thrower.x + 13, k.x - 8);
+        const t = (w.x - state.thrower.x) / (k.x - state.thrower.x);
+        w.z = state.thrower.z + (k.z - state.thrower.z) * t;   // se paran en la línea del tiro
+        w.half = w.n * 1.05;
+        for (let i = 0; i < wallDummies.length; i++) {
+          const d = wallDummies[i];
+          d.visible = i < w.n;
+          if (d.visible) {
+            d.position.set(w.x, 0, w.z - w.half + 1.05 + i * 2.1);
+            d.rotation.y = Math.PI / 2;   // miran al pateador
+          }
+        }
+      } else {
+        w.half = 0;
+        wallDummies.forEach(d => d.visible = false);
+      }
     } else {
       // básquet: el aro es fijo, se mueve el jugador por la cancha
       k.x = HOOP.x; k.z = HOOP.z;
@@ -2295,7 +2645,7 @@
     setWind();
     clearTrails();
     state.banana = null;
-    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = false;
+    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = soccerFly.visible = false;
     handItem().visible = true;
     state.celebrating = false;
     ui.levelTxt.textContent = state.level;
@@ -2314,10 +2664,13 @@
     player.visible = sc.thrower === "player";
     police.visible = sc.thrower === "police";
     archer.visible = sc.thrower === "archer";
+    futbol.visible = sc.thrower === "futbol";
     basketGroup.visible = sc.targetMesh === "wicker";
     trashGroup.visible = sc.targetMesh === "trash";
     hoopGroup.visible = sc.targetMesh === "hoop";
     bullseyeGroup.visible = sc.targetMesh === "bullseye";
+    goalGroup.visible = gkGroup.visible = sc.targetMesh === "goal";
+    if (sc.targetMesh !== "goal") wallDummies.forEach(d => d.visible = false);
     if (sc.pedestalColors) {
       pedestalMat.color.setHex(sc.pedestalColors[0]);
       pedestalCapMat.color.setHex(sc.pedestalColors[1]);
@@ -2382,7 +2735,7 @@
   function endThrow(hit) {
     commitTrailToLast();
     state.banana = null;
-    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = false;
+    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = soccerFly.visible = false;
     if (hit) {
       state.celebrating = true;
       const r = rec(state.scenKey);
@@ -2395,6 +2748,7 @@
       spawnParticles(k.x, k.rimY + 1, k.z, [0xffd54a, 0xff9d2e, 0x7cf29c, 0x7cc4ff, 0xff7ce0, 0xffffff], 130, [15, 55], 20);
       const hitTitle = scen().target === "hoop" ? "🏀 ¡ENCESTASTE!"
                      : scen().target === "bullseye" ? "🏹 ¡EN EL BLANCO!"
+                     : scen().target === "goal" ? "⚽ ¡GOOOOL!"
                      : "🎯 ¡EMBOCASTE!";
       showBanner(hitTitle, isRecord ? `Nivel ${state.level} superado · 🏆 ¡récord nuevo!` : `Nivel ${state.level} superado`, 1600);
       setTimeout(() => { state.level++; newLevel(); }, 1900);
@@ -2440,6 +2794,57 @@
     const sc = scen();
     const k = state.basket;
     const dh = Math.hypot(b.x - k.x, b.z - k.z);
+
+    // fútbol: barrera, arquero y plano del arco
+    if (sc.target === "goal") {
+      const w = state.wall;
+      // barrera
+      if (w.n > 0 && b.px <= w.x && b.x > w.x) {
+        const f = (w.x - b.px) / (b.x - b.px);
+        const cy = b.py + (b.y - b.py) * f;
+        const cz = b.pz + (b.z - b.pz) * f;
+        if (cy < 7.4 && Math.abs(cz - w.z) < w.half + 0.5) {
+          spawnParticles(w.x, cy, cz, [0xe04b3a, 0xffd0a8], 16, [5, 22], 6);
+          state.shake = 1.2;
+          endThrow(false);
+          return;
+        }
+      }
+      // línea de gol
+      if (b.px <= k.x && b.x > k.x) {
+        const f = (k.x - b.px) / (b.x - b.px);
+        const cy = b.py + (b.y - b.py) * f;
+        const cz = b.pz + (b.z - b.pz) * f;
+        // ataja el arquero
+        if (cy < state.gk.h && Math.abs(cz - state.gk.z) < state.gk.half) {
+          spawnParticles(k.x - 1, cy, cz, [0xff9d2e, 0xf2f2f2], 20, [6, 26], 8);
+          state.shake = 1.3;
+          endThrow(false);
+          return;
+        }
+        // adentro del arco: ¡gol!
+        if (cy < k.gh - 0.5 && Math.abs(cz - k.z) < k.gw - 0.5) {
+          spawnParticles(k.x, cy, cz, [0xf2f6ff, 0x7cc4ff], 30, [6, 25], 10);
+          endThrow(true);
+          return;
+        }
+        // poste o travesaño
+        if (cy < k.gh + 0.6 && Math.abs(cz - k.z) < k.gw + 0.6) {
+          spawnParticles(k.x, cy, cz, [0xf2f6ff, 0x9aa8c0], 14, [5, 22], 6);
+          state.shake = 1.2;
+          endThrow(false);
+          return;
+        }
+      }
+      if (b.y < 0.45) {
+        spawnParticles(b.x, 0.4, b.z, [0x3f7a35, 0x2a5e2a], 16, [5, 22], 7);
+        state.shake = 1;
+        endThrow(false);
+        return;
+      }
+      if (Math.abs(b.x) > CFG.boundsX || Math.abs(b.z) > CFG.boundsX) endThrow(false);
+      return;
+    }
 
     // blanco de arquería: plano vertical que puede estar girado (k.rot)
     if (sc.target === "bullseye") {
@@ -2567,6 +2972,7 @@
     playerArm.rotation.z = lerp(0.45, 2.6, state.armUp);
     policeArm.rotation.z = lerp(0.45, 2.6, state.armUp);
     archerArm.rotation.z = lerp(0.45, 2.6, state.armUp);
+    futbolLeg.rotation.z = lerp(0, 1.5, state.armUp);   // patada
     const k = state.basket;
     const arrowBaseY = scen().target === "hoop" ? k.rimY + 4.6 : k.rimY + 3.2;
     arrow.position.set(k.x, arrowBaseY + Math.sin(state.time * 3) * 0.7, k.z);

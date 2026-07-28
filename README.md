@@ -14,6 +14,7 @@ El botón del HUD (arriba a la izquierda) cambia entre tres escenarios:
 | 🌴 **Selva** | El gorila en su hábitat: árboles, palmeras, helechos en primer plano y luciérnagas. El canasto (sobre troncos) se mueve por nivel. |
 | 🏀 **Básquet** | Un jugador tira al aro (tablero, hierro y red) en un **estadio con tribunas llenas de público**. Acá el aro es fijo: lo que cambia por nivel es **tu posición en la cancha**, cada vez más lejos y con más ángulo. |
 | 🏹 **Arquero** | Un arquero con túnica y capucha medieval dispara flechas a un **blanco de aros sobre un montículo de paja**, en un bosque con prado, pinos, robles y casitas medievales. La flecha vuela orientada a su trayectoria y queda clavada en el blanco. Si pega en la paja fuera de los aros, es fallo. |
+| ⚽ **Fútbol** | Tiro libre en un estadio: un jugador con la 10 patea al **arco con red**, custodiado por un **arquero que ataja** (cambia de palo en cada nivel). Con el nivel te alejás, aparece una **barrera de rivales** cada vez más larga y **el arco se achica**. Pegarle a la barrera, al arquero o al palo es fallo. |
 
 ## Cómo jugar
 
