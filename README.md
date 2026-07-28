@@ -1,12 +1,12 @@
-# 🦍 Gorilla Banana
+# 🦍 Gorilla Banana 3D
 
-Un homenaje moderno al clásico **GORILLA.BAS** de QBasic, hecho en HTML + JavaScript puro (sin dependencias).
+Un homenaje moderno al clásico **GORILLA.BAS** de QBasic, hecho en HTML + JavaScript con **three.js** (renderizado 3D con WebGL).
 
 Un gorila en un extremo de la ciudad tiene que embocar una banana en un canasto en el otro extremo. Elegís el **ángulo** y la **fuerza** del tiro, y la física (tiro parabólico con gravedad y viento) decide si la banana cae adentro.
 
 ## Cómo jugar
 
-Abrí `index.html` en cualquier navegador. Nada que instalar ni buildear.
+Abrí `index.html` en cualquier navegador (funciona directo desde el archivo, sin servidor ni build). En el celular ocupa toda la pantalla; se ve mejor apaisado.
 
 - **Ángulo** y **Fuerza**: con los sliders, o con el teclado (`↑`/`↓` ángulo, `←`/`→` fuerza).
 - **Lanzar**: botón `¡LANZAR!` o barra espaciadora.
@@ -23,7 +23,8 @@ Abrí `index.html` en cualquier navegador. Nada que instalar ni buildear.
 
 ## Detalles técnicos
 
-- Canvas 2D a 60 fps con física por integración de Euler (`dt` real por frame).
-- Ciudad nocturna generada proceduralmente en cada nivel (edificios, ventanas iluminadas, estrellas que titilan, luna).
-- Estela de la banana, partículas de festejo, screen-shake al fallar y sonidos sintetizados con WebAudio (sin archivos de audio).
-- Un solo archivo: `index.html`.
+- **three.js r147** (vendoreado en `vendor/three.min.js`, no necesita internet) con sombras suaves, niebla atmosférica, tone mapping ACES y pixel ratio adaptado a la pantalla.
+- Ciudad nocturna 3D generada proceduralmente en cada nivel: tres filas de edificios con ventanas iluminadas (texturas de canvas), estrellas, luna con halo.
+- Gorila y canasto modelados por código (esferas/cápsulas y superficie de revolución con textura de mimbre), banana como toro recortado que gira en vuelo.
+- Física por integración de Euler con `dt` real por frame; guía de puntería con puntitos, estela aditiva del tiro, partículas de festejo, screen-shake al fallar.
+- **Mobile-first**: pantalla completa (`viewport-fit=cover` + safe areas), cámara que se reencuadra sola según orientación, controles táctiles grandes, vibración háptica y sonidos sintetizados con WebAudio.

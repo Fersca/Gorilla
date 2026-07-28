@@ -2,11 +2,12 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🦍 Gorilla Banana — homenaje a GORILLA.BAS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f24">
+<title>🦍 Gorilla Banana 3D — homenaje a GORILLA.BAS</title>
 <style>
   :root {
-    --panel-bg: rgba(15, 20, 40, 0.72);
+    --panel-bg: rgba(13, 17, 36, 0.66);
     --panel-border: rgba(255, 255, 255, 0.14);
     --accent: #ffd54a;
     --accent-2: #ff9d2e;
@@ -15,63 +16,54 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     height: 100%;
-    background: radial-gradient(1200px 800px at 50% 20%, #1b2350 0%, #0b0f24 60%, #05070f 100%);
+    overflow: hidden;
+    background: #0b0f24;
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
     color: var(--text);
-    overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
+    touch-action: manipulation;
+    overscroll-behavior: none;
   }
-  #wrap {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    padding: 16px;
-  }
-  #stage {
-    position: relative;
-    width: min(100%, calc((100vh - 190px) * 16 / 9));
-    max-width: 1280px;
-    aspect-ratio: 16 / 9;
-    border-radius: 18px;
-    overflow: hidden;
-    box-shadow: 0 24px 70px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08) inset;
-  }
-  canvas { width: 100%; height: 100%; display: block; }
+  body { position: fixed; inset: 0; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
 
   /* ---------- HUD ---------- */
-  .hud {
-    position: absolute;
-    top: 14px;
+  #hud {
+    position: fixed;
+    top: max(10px, env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
     display: flex;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 8px;
     pointer-events: none;
+    z-index: 5;
   }
-  .hud.left  { left: 14px; }
-  .hud.right { right: 14px; }
+  .hudGroup { display: flex; gap: 8px; flex-wrap: wrap; }
   .chip {
     background: var(--panel-bg);
     backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border: 1px solid var(--panel-border);
     border-radius: 12px;
-    padding: 8px 14px;
-    font-size: 14px;
+    padding: 7px 12px;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: .3px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
     box-shadow: 0 6px 18px rgba(0,0,0,.35);
+    white-space: nowrap;
   }
-  .chip b { color: var(--accent); font-size: 16px; }
-  #windArrow { display: inline-block; transition: transform .3s; font-size: 15px; }
+  .chip b { color: var(--accent); font-size: 15px; }
+  #windArrow { display: inline-block; font-size: 14px; }
 
   /* ---------- banner de nivel ---------- */
   #banner {
-    position: absolute;
+    position: fixed;
     inset: 0;
     display: flex;
     align-items: center;
@@ -81,10 +73,13 @@
     pointer-events: none;
     opacity: 0;
     transition: opacity .35s;
+    z-index: 6;
+    text-align: center;
+    padding: 0 16px;
   }
   #banner.show { opacity: 1; }
   #banner h1 {
-    font-size: clamp(34px, 6vw, 72px);
+    font-size: clamp(30px, 9vw, 72px);
     font-weight: 800;
     background: linear-gradient(180deg, #fff, var(--accent) 55%, var(--accent-2));
     -webkit-background-clip: text;
@@ -95,35 +90,54 @@
     transition: transform .35s cubic-bezier(.2, 1.6, .4, 1);
   }
   #banner.show h1 { transform: scale(1); }
-  #banner p { font-size: 16px; opacity: .85; font-weight: 600; }
+  #banner p { font-size: clamp(13px, 3.5vw, 17px); opacity: .9; font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+
+  /* ---------- hint de rotación ---------- */
+  #rotateHint {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--panel-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 7;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .5s;
+  }
+  #rotateHint.show { opacity: 1; }
 
   /* ---------- controles ---------- */
   #controls {
-    width: min(100%, 1280px);
-    display: flex;
+    position: fixed;
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    z-index: 5;
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
     align-items: center;
-    justify-content: center;
-    gap: 22px;
-    flex-wrap: wrap;
+    gap: 10px 18px;
     background: var(--panel-bg);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border: 1px solid var(--panel-border);
-    border-radius: 16px;
-    padding: 14px 22px;
-    box-shadow: 0 14px 40px rgba(0,0,0,.45);
+    border-radius: 18px;
+    padding: 12px 16px;
+    box-shadow: 0 14px 40px rgba(0,0,0,.5);
+    max-width: 1100px;
+    margin: 0 auto;
   }
-  .ctl {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 260px;
-    flex: 1;
-    max-width: 380px;
-  }
+  .ctl { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .ctl label {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 1.2px;
+    letter-spacing: 1.1px;
     text-transform: uppercase;
     opacity: .75;
     white-space: nowrap;
@@ -131,13 +145,14 @@
   .ctl output {
     font-variant-numeric: tabular-nums;
     font-weight: 800;
-    font-size: 18px;
+    font-size: 17px;
     color: var(--accent);
-    min-width: 52px;
+    min-width: 46px;
     text-align: right;
   }
   input[type="range"] {
     flex: 1;
+    min-width: 0;
     -webkit-appearance: none;
     appearance: none;
     height: 8px;
@@ -145,94 +160,116 @@
     background: linear-gradient(90deg, var(--accent) var(--fill, 50%), rgba(255,255,255,.15) var(--fill, 50%));
     outline: none;
     cursor: pointer;
+    touch-action: none;
   }
   input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 22px; height: 22px;
+    width: 26px; height: 26px;
     border-radius: 50%;
     background: radial-gradient(circle at 35% 30%, #fff, var(--accent) 60%, var(--accent-2));
     box-shadow: 0 3px 10px rgba(0,0,0,.5), 0 0 0 3px rgba(255,213,74,.25);
-    cursor: grab;
   }
   input[type="range"]::-moz-range-thumb {
-    width: 22px; height: 22px; border: none;
+    width: 26px; height: 26px; border: none;
     border-radius: 50%;
     background: radial-gradient(circle at 35% 30%, #fff, var(--accent) 60%, var(--accent-2));
     box-shadow: 0 3px 10px rgba(0,0,0,.5), 0 0 0 3px rgba(255,213,74,.25);
-    cursor: grab;
   }
   #throwBtn {
     font: inherit;
     font-size: 17px;
     font-weight: 800;
     letter-spacing: .6px;
-    padding: 13px 34px;
+    padding: 13px 30px;
     border: none;
     border-radius: 14px;
     color: #2b1a00;
     background: linear-gradient(180deg, #ffe27a, var(--accent) 45%, var(--accent-2));
     box-shadow: 0 8px 22px rgba(255, 160, 30, .38), 0 1px 0 rgba(255,255,255,.6) inset;
     cursor: pointer;
-    transition: transform .12s, box-shadow .12s, filter .12s;
+    transition: transform .12s, filter .12s;
+    touch-action: manipulation;
   }
-  #throwBtn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(255,160,30,.5), 0 1px 0 rgba(255,255,255,.6) inset; }
-  #throwBtn:active:not(:disabled) { transform: translateY(1px) scale(.98); }
-  #throwBtn:disabled { filter: grayscale(.7) brightness(.65); cursor: default; }
-  #hint { font-size: 12px; opacity: .55; text-align: center; width: 100%; }
-  kbd {
-    background: rgba(255,255,255,.12);
-    border: 1px solid rgba(255,255,255,.2);
-    border-radius: 5px;
-    padding: 1px 6px;
-    font-size: 11px;
-    font-family: inherit;
+  #throwBtn:active:not(:disabled) { transform: scale(.96); }
+  #throwBtn:disabled { filter: grayscale(.7) brightness(.65); }
+
+  /* móvil: sliders apilados, botón a lo ancho */
+  @media (max-width: 640px) {
+    #controls { grid-template-columns: 1fr; gap: 8px; padding: 10px 14px; }
+    #throwBtn { width: 100%; padding: 14px; }
+    .chip { font-size: 12px; padding: 6px 10px; }
+  }
+  /* pantallas bajas y anchas (celu apaisado): panel más compacto */
+  @media (max-height: 450px) {
+    #controls { padding: 8px 14px; gap: 6px 14px; }
+    #throwBtn { padding: 10px 26px; font-size: 15px; }
   }
 </style>
 </head>
 <body>
-<div id="wrap">
-  <div id="stage">
-    <canvas id="game"></canvas>
-    <div class="hud left">
-      <div class="chip">🏆 Nivel <b id="levelTxt">1</b></div>
-      <div class="chip">🍌 Intentos <b id="triesTxt">0</b></div>
-    </div>
-    <div class="hud right">
-      <div class="chip" id="windChip" style="display:none">💨 Viento <span id="windArrow">→</span> <b id="windTxt">0</b></div>
-    </div>
-    <div id="banner"><h1 id="bannerTitle">¡GORILLA!</h1><p id="bannerSub">Emboca la banana en el canasto</p></div>
-  </div>
+<div id="app"></div>
 
-  <div id="controls">
-    <div class="ctl">
-      <label for="angle">Ángulo</label>
-      <input type="range" id="angle" min="10" max="85" value="45" step="1">
-      <output id="angleOut">45°</output>
-    </div>
-    <div class="ctl">
-      <label for="power">Fuerza</label>
-      <input type="range" id="power" min="20" max="100" value="60" step="1">
-      <output id="powerOut">60</output>
-    </div>
-    <button id="throwBtn">🍌 ¡LANZAR!</button>
-    <div id="hint"><kbd>↑</kbd><kbd>↓</kbd> ángulo &nbsp;·&nbsp; <kbd>←</kbd><kbd>→</kbd> fuerza &nbsp;·&nbsp; <kbd>Espacio</kbd> lanzar</div>
+<div id="hud">
+  <div class="hudGroup">
+    <div class="chip">🏆 Nivel <b id="levelTxt">1</b></div>
+    <div class="chip">🍌 Intentos <b id="triesTxt">0</b></div>
+  </div>
+  <div class="hudGroup">
+    <div class="chip" id="windChip" style="display:none">💨 <span id="windArrow">→</span> <b id="windTxt">0</b></div>
   </div>
 </div>
 
+<div id="banner"><h1 id="bannerTitle">¡GORILLA!</h1><p id="bannerSub">Emboca la banana en el canasto</p></div>
+<div id="rotateHint">📱 Girá el teléfono para ver mejor la ciudad</div>
+
+<div id="controls">
+  <div class="ctl">
+    <label for="angle">Ángulo</label>
+    <input type="range" id="angle" min="10" max="85" value="45" step="1">
+    <output id="angleOut">45°</output>
+  </div>
+  <div class="ctl">
+    <label for="power">Fuerza</label>
+    <input type="range" id="power" min="20" max="100" value="60" step="1">
+    <output id="powerOut">60</output>
+  </div>
+  <button id="throwBtn">🍌 ¡LANZAR!</button>
+</div>
+
+<script src="vendor/three.min.js"></script>
 <script>
 (() => {
   "use strict";
 
-  // ------------------------------------------------------------------
-  // Configuración general
-  // ------------------------------------------------------------------
-  const W = 1280, H = 720;
-  const GROUND_Y = H - 66;
-  const GRAVITY = 340;              // px/s²
-  const canvas = document.getElementById("game");
-  const ctx = canvas.getContext("2d");
-  canvas.width = W;
-  canvas.height = H;
+  // ==================================================================
+  // Configuración del mundo (unidades de mundo, suelo en y=0)
+  // ==================================================================
+  const CFG = {
+    gravity: 38,                 // u/s²
+    powerToV: 0.72,              // v0 = fuerza * powerToV
+    gorillaX: -38,
+    handOffset: { x: 4.3, y: 10.6 },   // mano del gorila (brazo arriba) rel. a su base
+    basketMinX: 4,
+    basketMaxX: 44,
+    basketH: 4.4,
+    rimR: 3.1,
+    boundsX: 75,
+  };
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  const state = {
+    level: 1,
+    tries: 0,
+    wind: 0,                     // aceleración horizontal u/s²
+    banana: null,                // {x, y, px, py, vx, vy}
+    celebrating: false,
+    shake: 0,
+    time: 0,
+    armUp: 0,
+    basket: { x: 20, baseY: 0, rimY: CFG.basketH, pedestalH: 0 },
+  };
 
   const ui = {
     angle: document.getElementById("angle"),
@@ -248,37 +285,17 @@
     banner: document.getElementById("banner"),
     bannerTitle: document.getElementById("bannerTitle"),
     bannerSub: document.getElementById("bannerSub"),
+    rotateHint: document.getElementById("rotateHint"),
   };
 
-  // ------------------------------------------------------------------
-  // Estado del juego
-  // ------------------------------------------------------------------
-  const state = {
-    level: 1,
-    tries: 0,
-    wind: 0,                        // aceleración horizontal px/s²
-    banana: null,                   // {x, y, vx, vy, rot}
-    trail: [],
-    lastTrail: [],                  // estela del tiro anterior (guía tenue)
-    particles: [],
-    stars: [],
-    buildings: [],
-    basket: { x: 0, y: 0, w: 92, h: 58, pedestalH: 0 },
-    gorilla: { x: 130, y: GROUND_Y, armUp: 0 },   // armUp: 0..1 animación del brazo
-    shake: 0,
-    celebrating: false,
-    time: 0,
-  };
-
-  const rand = (a, b) => a + Math.random() * (b - a);
-
-  // ------------------------------------------------------------------
-  // Sonido (WebAudio, sintetizado — sin archivos)
-  // ------------------------------------------------------------------
+  // ==================================================================
+  // Sonido y vibración
+  // ==================================================================
   let audioCtx = null;
   function beep(freq, dur, type = "sine", vol = 0.15, when = 0) {
     try {
       audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
       const t = audioCtx.currentTime + when;
       const o = audioCtx.createOscillator();
       const g = audioCtx.createGain();
@@ -287,93 +304,559 @@
       g.gain.setValueAtTime(vol, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + dur);
       o.connect(g).connect(audioCtx.destination);
-      o.start(t);
-      o.stop(t + dur);
-    } catch (e) { /* audio bloqueado: no pasa nada */ }
+      o.start(t); o.stop(t + dur);
+    } catch (e) { /* sin audio */ }
   }
-  const sndThrow = () => { beep(220, .12, "triangle", .1); beep(440, .1, "triangle", .06, .04); };
-  const sndMiss  = () => { beep(110, .25, "sawtooth", .12); };
-  const sndScore = () => { [523, 659, 784, 1047].forEach((f, i) => beep(f, .18, "triangle", .14, i * .09)); };
+  const vibrate = (p) => { if (navigator.vibrate) try { navigator.vibrate(p); } catch (e) {} };
+  const sndThrow = () => { beep(220, .12, "triangle", .1); beep(440, .1, "triangle", .06, .04); vibrate(25); };
+  const sndMiss  = () => { beep(110, .25, "sawtooth", .12); vibrate(60); };
+  const sndScore = () => { [523, 659, 784, 1047].forEach((f, i) => beep(f, .18, "triangle", .14, i * .09)); vibrate([40, 60, 40, 60, 90]); };
 
-  // ------------------------------------------------------------------
-  // Generación de nivel
-  // ------------------------------------------------------------------
-  function makeStars() {
-    state.stars = [];
-    for (let i = 0; i < 90; i++) {
-      state.stars.push({
-        x: Math.random() * W,
-        y: Math.random() * H * 0.55,
-        r: rand(0.4, 1.6),
-        tw: rand(0.5, 2.5),
-        ph: Math.random() * Math.PI * 2,
-      });
+  // ==================================================================
+  // Escena three.js
+  // ==================================================================
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.getElementById("app").appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x453a75, 120, 340);   // bruma violeta que empalma con el cielo
+
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.5, 900);
+  const camBase = new THREE.Vector3(1, 12, 60);
+  const camLook = new THREE.Vector3(1, 10.5, 0);
+
+  function fitCamera() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    const vfov = THREE.MathUtils.degToRad(camera.fov);
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
+    const dW = 50 / Math.tan(hfov / 2);        // que entren x ∈ [-49, 51]
+    const dH = 17 / Math.tan(vfov / 2);        // y suficiente de cielo y piso
+    camBase.z = Math.max(dW, dH);
+    // en vertical la cámara queda lejos: subir la mirada para no mostrar tanto piso
+    camLook.y = camera.aspect < 0.9 ? 24 : 10.5;
+    camBase.y = camLook.y + 1.5;
+    camera.position.copy(camBase);
+    camera.updateProjectionMatrix();
+    scene.fog.near = camBase.z + 40;
+    scene.fog.far = camBase.z + 300;
+  }
+  window.addEventListener("resize", fitCamera);
+  window.addEventListener("orientationchange", () => setTimeout(fitCamera, 250));
+
+  // ------------------------------------------------ luces
+  scene.add(new THREE.HemisphereLight(0x35426f, 0x0b0e16, 0.85));
+  const moonLight = new THREE.DirectionalLight(0xcfdcff, 1.0);
+  moonLight.position.set(30, 70, 35);
+  moonLight.castShadow = true;
+  moonLight.shadow.mapSize.set(1024, 1024);
+  moonLight.shadow.camera.left = -70;
+  moonLight.shadow.camera.right = 70;
+  moonLight.shadow.camera.top = 60;
+  moonLight.shadow.camera.bottom = -20;
+  moonLight.shadow.camera.near = 20;
+  moonLight.shadow.camera.far = 220;
+  moonLight.shadow.bias = -0.002;
+  scene.add(moonLight);
+  const rimLight = new THREE.DirectionalLight(0x6a5aff, 0.35);
+  rimLight.position.set(-40, 25, -30);
+  scene.add(rimLight);
+
+  // ------------------------------------------------ cielo, luna, estrellas
+  function gradientTexture(stops, w = 2, h = 512) {
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const g = c.getContext("2d");
+    const grd = g.createLinearGradient(0, 0, 0, h);
+    for (const [p, col] of stops) grd.addColorStop(p, col);
+    g.fillStyle = grd;
+    g.fillRect(0, 0, w, h);
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  }
+  const sky = new THREE.Mesh(
+    new THREE.PlaneGeometry(3000, 1400),
+    new THREE.MeshBasicMaterial({
+      map: gradientTexture([[0, "#070a1c"], [0.42, "#1a2050"], [0.72, "#4a3a80"], [1, "#8a4a7d"]]),
+      fog: false, depthWrite: false,
+    })
+  );
+  sky.position.set(0, 300, -500);
+  scene.add(sky);
+
+  const starGeo = new THREE.BufferGeometry();
+  {
+    const n = 500, pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      pos[i * 3] = rand(-600, 600);
+      pos[i * 3 + 1] = rand(30, 380);
+      pos[i * 3 + 2] = rand(-255, -180);
     }
+    starGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
   }
+  const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0.85, fog: false });
+  scene.add(new THREE.Points(starGeo, starMat));
 
-  function makeBuildings() {
-    state.buildings = [];
-    const palette = ["#1c2f5e", "#24356b", "#182a52", "#2a3d78", "#203361"];
-    let x = -20;
-    while (x < W + 40) {
-      const bw = rand(70, 150);
-      const bh = rand(90, 300);
-      const b = {
-        x, w: bw, h: bh,
-        color: palette[(Math.random() * palette.length) | 0],
-        windows: [],
-      };
-      const cols = Math.max(2, (bw / 24) | 0);
-      const rows = Math.max(2, (bh / 34) | 0);
+  function glowTexture(inner, outer) {
+    const c = document.createElement("canvas");
+    c.width = c.height = 128;
+    const g = c.getContext("2d");
+    const grd = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+    grd.addColorStop(0, inner);
+    grd.addColorStop(1, outer);
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  }
+  const moon = new THREE.Mesh(
+    new THREE.CircleGeometry(13, 40),
+    new THREE.MeshBasicMaterial({ color: 0xfdf6d8, fog: false })
+  );
+  moon.position.set(52, 105, -250);
+  scene.add(moon);
+  const moonGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: glowTexture("rgba(255,248,214,.55)", "rgba(255,248,214,0)"),
+    transparent: true, fog: false, depthWrite: false,
+  }));
+  moonGlow.scale.set(85, 85, 1);
+  moonGlow.position.copy(moon.position).z -= 1;
+  scene.add(moonGlow);
+
+  // ------------------------------------------------ piso
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(3000, 1000),
+    new THREE.MeshStandardMaterial({ color: 0x131b0e, roughness: 1 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set(0, 0, -100);   // llega hasta z=+400: cubre por delante de la cámara
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // ------------------------------------------------ edificios
+  function buildingTextures(rows) {
+    // devuelve {map, emissive} con ventanas; `rows` filas de ventanas
+    const w = 64, h = rows * 16;
+    const cm = document.createElement("canvas"); cm.width = w; cm.height = h;
+    const ce = document.createElement("canvas"); ce.width = w; ce.height = h;
+    const gm = cm.getContext("2d"), ge = ce.getContext("2d");
+    const base = ["#232f57", "#1c2748", "#2a3763", "#1f2c52"][(Math.random() * 4) | 0];
+    gm.fillStyle = base; gm.fillRect(0, 0, w, h);
+    ge.fillStyle = "#000"; ge.fillRect(0, 0, w, h);
+    const cols = 4;
+    for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        for (let r = 0; r < rows; r++) {
-          if (Math.random() < 0.55) {
-            b.windows.push({
-              x: 8 + c * (bw - 16) / cols + rand(-1, 1),
-              y: 12 + r * (bh - 20) / rows,
-              lit: Math.random() < 0.6,
-            });
-          }
+        if (Math.random() < 0.42) continue;
+        const x = 6 + c * 14, y = 5 + r * 16;
+        const lit = Math.random() < 0.55;
+        gm.fillStyle = lit ? "#ffd876" : "#0b1020";
+        gm.fillRect(x, y, 8, 9);
+        if (lit) {
+          ge.fillStyle = "#ffca55";
+          ge.fillRect(x, y, 8, 9);
         }
       }
-      state.buildings.push(b);
-      x += bw + rand(4, 14);
+    }
+    const map = new THREE.CanvasTexture(cm);
+    map.encoding = THREE.sRGBEncoding;
+    return { map, emissive: new THREE.CanvasTexture(ce) };
+  }
+  const texPool = [];
+  for (const rows of [4, 4, 6, 6, 8, 8, 10, 12]) texPool.push({ rows, tex: buildingTextures(rows) });
+  function pickTex(bh) {
+    // variante cuyas filas de ventanas mejor calcen con la altura del edificio
+    const want = bh / 3.2;
+    let best = texPool[0];
+    for (const p of texPool) {
+      if (Math.abs(p.rows - want) < Math.abs(best.rows - want)) best = p;
+    }
+    return best.tex;
+  }
+
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+  boxGeo.translate(0, 0.5, 0);          // origen en la base
+  let cityGroup = null;
+  function makeCity() {
+    if (cityGroup) {
+      scene.remove(cityGroup);
+      cityGroup.traverse(o => {
+        const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+        for (const m of mats) {
+          if (m.map) m.map.dispose();
+          if (m.emissiveMap) m.emissiveMap.dispose();
+          m.dispose();
+        }
+      });
+    }
+    cityGroup = new THREE.Group();
+    const rows = [
+      { z: -20, hMin: 5,  hMax: 15, wMin: 7,  wMax: 13, gap: [4, 14] },
+      { z: -45, hMin: 12, hMax: 34, wMin: 10, wMax: 18, gap: [3, 9] },
+      { z: -80, hMin: 20, hMax: 55, wMin: 14, wMax: 24, gap: [2, 7] },
+    ];
+    for (const row of rows) {
+      let x = -130;
+      while (x < 130) {
+        const bw = rand(row.wMin, row.wMax);
+        const bh = rand(row.hMin, row.hMax);
+        const t = pickTex(bh);
+        // clonar para repetir la textura según el ancho (ventanas sin estirar)
+        const map = t.map.clone(); map.needsUpdate = true;
+        const emis = t.emissive.clone(); emis.needsUpdate = true;
+        map.wrapS = emis.wrapS = THREE.RepeatWrapping;
+        map.repeat.x = emis.repeat.x = Math.max(1, Math.round(bw / 7));
+        const sideMat = new THREE.MeshStandardMaterial({
+          map, emissiveMap: emis, emissive: 0xffffff,
+          emissiveIntensity: 0.62, roughness: 0.9,
+        });
+        const topMat = new THREE.MeshStandardMaterial({ color: 0x141b33, roughness: 1 });
+        const b = new THREE.Mesh(boxGeo, [sideMat, sideMat, topMat, topMat, sideMat, sideMat]);
+        b.position.set(x + bw / 2, 0, row.z + rand(-3, 3));
+        b.scale.set(bw, bh, rand(row.wMin, row.wMax));
+        cityGroup.add(b);
+        x += bw + rand(row.gap[0], row.gap[1]);
+      }
+    }
+    scene.add(cityGroup);
+  }
+
+  // ------------------------------------------------ gorila
+  const furMat  = new THREE.MeshStandardMaterial({ color: 0x23272e, roughness: 0.85 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x171a1f, roughness: 0.9 });
+  const skinMat = new THREE.MeshStandardMaterial({ color: 0x7d7263, roughness: 0.7 });
+  const eyeMat  = new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.3 });
+
+  function sphere(r, mat, sx = 1, sy = 1, sz = 1) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 18), mat);
+    m.scale.set(sx, sy, sz);
+    m.castShadow = true;
+    return m;
+  }
+
+  const gorilla = new THREE.Group();
+  gorilla.position.set(CFG.gorillaX, 0, 0);
+  {
+    // piernas
+    const l1 = sphere(1.5, darkMat, 1.15, 1.25, 1.2); l1.position.set(-1.6, 1.5, 0); gorilla.add(l1);
+    const l2 = l1.clone(); l2.position.x = 1.6; gorilla.add(l2);
+    // torso
+    const torso = sphere(2.9, furMat, 1, 1.18, 0.85); torso.position.set(0, 4.4, 0); gorilla.add(torso);
+    const chest = sphere(1.9, skinMat, 1, 1.15, 0.55); chest.position.set(0, 4.4, 1.55); gorilla.add(chest);
+    // cabeza
+    const head = sphere(1.65, furMat, 1, 0.95, 0.95); head.position.set(0, 8.35, 0.25); gorilla.add(head);
+    const crest = sphere(0.85, furMat, 1.1, 0.75, 1); crest.position.set(0, 9.55, 0.1); gorilla.add(crest);
+    const face = sphere(1.15, skinMat, 1, 0.85, 0.6); face.position.set(0, 8.1, 1.25); gorilla.add(face);
+    const e1 = sphere(0.16, eyeMat); e1.position.set(-0.42, 8.55, 1.85); gorilla.add(e1);
+    const e2 = e1.clone(); e2.position.x = 0.42; gorilla.add(e2);
+    const n1 = sphere(0.09, eyeMat); n1.position.set(-0.2, 8.0, 1.95); gorilla.add(n1);
+    const n2 = n1.clone(); n2.position.x = 0.2; gorilla.add(n2);
+    // brazo izquierdo (fijo, apoyado)
+    const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.72, 4.2, 6, 14), furMat);
+    armL.castShadow = true;
+    armL.position.set(-2.35, 6.3, 0.3);
+    armL.geometry.translate(0, -2.4, 0);
+    armL.rotation.z = -0.5;
+    gorilla.add(armL);
+    const handL = sphere(0.95, darkMat); handL.position.set(-4.6, 1.1, 0.3); gorilla.add(handL);
+  }
+  // brazo derecho (lanzador, animado)
+  const armGroup = new THREE.Group();
+  armGroup.position.set(2.35, 6.4, 0.3);
+  const armR = new THREE.Mesh(new THREE.CapsuleGeometry(0.72, 4.2, 6, 14), furMat);
+  armR.castShadow = true;
+  armR.geometry.translate(0, -2.4, 0);
+  armGroup.add(armR);
+  const handR = sphere(0.95, darkMat);
+  handR.position.set(0, -4.7, 0);
+  armGroup.add(handR);
+  gorilla.add(armGroup);
+  scene.add(gorilla);
+
+  // ------------------------------------------------ banana
+  function makeBanana(scale = 1) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.TorusGeometry(1.15, 0.44, 12, 20, 2.3),
+      new THREE.MeshStandardMaterial({ color: 0xffd23e, roughness: 0.5, emissive: 0x4a3300 })
+    );
+    body.castShadow = true;
+    g.add(body);
+    const tipMat = new THREE.MeshStandardMaterial({ color: 0x7a5c10, roughness: 0.8 });
+    const t1 = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8), tipMat);
+    t1.position.set(1.15, 0, 0);
+    g.add(t1);
+    const t2 = t1.clone();
+    t2.position.set(1.15 * Math.cos(2.3), 1.15 * Math.sin(2.3), 0);
+    g.add(t2);
+    g.scale.setScalar(scale);
+    return g;
+  }
+  const bananaFly = makeBanana(1.35);
+  bananaFly.visible = false;
+  scene.add(bananaFly);
+  const bananaHand = makeBanana(0.7);
+  bananaHand.position.set(0, -0.4, 0.9);
+  handR.add(bananaHand);
+
+  // ------------------------------------------------ canasto
+  function wickerTexture() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 128;
+    const g = c.getContext("2d");
+    g.fillStyle = "#8a5a22"; g.fillRect(0, 0, 128, 128);
+    for (let y = 0; y < 128; y += 16) {
+      for (let x = 0; x < 128; x += 32) {
+        const off = (y / 16) % 2 ? 16 : 0;
+        g.fillStyle = ((x / 32) % 2 ? "#a06a2c" : "#754a1a");
+        g.fillRect(x + off - 16, y, 30, 14);
+        g.strokeStyle = "rgba(60,32,6,.6)";
+        g.strokeRect(x + off - 16, y, 30, 14);
+      }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(3, 1.4);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  }
+  const basketGroup = new THREE.Group();
+  {
+    const pts = [];
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10;
+      pts.push(new THREE.Vector2(lerp(1.9, CFG.rimR, Math.pow(t, 0.8)), t * CFG.basketH));
+    }
+    const wick = wickerTexture();
+    const cup = new THREE.Mesh(
+      new THREE.LatheGeometry(pts, 26),
+      new THREE.MeshStandardMaterial({ map: wick, bumpMap: wick, bumpScale: 0.06, roughness: 0.85, side: THREE.DoubleSide })
+    );
+    cup.castShadow = true;
+    basketGroup.add(cup);
+    const rim = new THREE.Mesh(
+      new THREE.TorusGeometry(CFG.rimR, 0.26, 10, 30),
+      new THREE.MeshStandardMaterial({ color: 0xc98d3e, roughness: 0.7 })
+    );
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = CFG.basketH;
+    rim.castShadow = true;
+    basketGroup.add(rim);
+    // interior oscuro
+    const inner = new THREE.Mesh(
+      new THREE.CircleGeometry(CFG.rimR - 0.2, 24),
+      new THREE.MeshBasicMaterial({ color: 0x241202 })
+    );
+    inner.rotation.x = -Math.PI / 2;
+    inner.position.y = CFG.basketH - 0.4;
+    basketGroup.add(inner);
+  }
+  const arrow = new THREE.Mesh(
+    new THREE.ConeGeometry(1.1, 2.1, 4),
+    new THREE.MeshBasicMaterial({ color: 0xffd54a, toneMapped: false })
+  );
+  arrow.rotation.x = Math.PI;
+  basketGroup.add(arrow);
+  scene.add(basketGroup);
+
+  const pedestal = new THREE.Mesh(
+    new THREE.BoxGeometry(4.6, 1, 4.6),
+    new THREE.MeshStandardMaterial({ color: 0x554668, roughness: 0.8 })
+  );
+  pedestal.castShadow = true;
+  pedestal.receiveShadow = true;
+  scene.add(pedestal);
+  const pedestalCap = new THREE.Mesh(
+    new THREE.BoxGeometry(5.4, 0.5, 5.4),
+    new THREE.MeshStandardMaterial({ color: 0x6f5c86, roughness: 0.7 })
+  );
+  pedestalCap.castShadow = true;
+  scene.add(pedestalCap);
+
+  // ------------------------------------------------ estelas
+  const TRAIL_N = 320;
+  function makeTrailLine(color, opacity) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(TRAIL_N * 3), 3));
+    geo.setDrawRange(0, 0);
+    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({
+      color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+    }));
+    line.frustumCulled = false;
+    scene.add(line);
+    return line;
+  }
+  const trailLine = makeTrailLine(0xffd23e, 0.75);
+  const lastTrailLine = makeTrailLine(0xbfa970, 0.16);
+  let trailCount = 0;
+
+  function pushTrail(x, y) {
+    if (trailCount >= TRAIL_N) return;
+    const arr = trailLine.geometry.attributes.position.array;
+    arr[trailCount * 3] = x;
+    arr[trailCount * 3 + 1] = y;
+    arr[trailCount * 3 + 2] = 0.4;
+    trailCount++;
+    trailLine.geometry.setDrawRange(0, trailCount);
+    trailLine.geometry.attributes.position.needsUpdate = true;
+  }
+  function commitTrailToLast() {
+    const src = trailLine.geometry.attributes.position.array;
+    const dst = lastTrailLine.geometry.attributes.position.array;
+    dst.set(src);
+    lastTrailLine.geometry.setDrawRange(0, trailCount);
+    lastTrailLine.geometry.attributes.position.needsUpdate = true;
+    trailCount = 0;
+    trailLine.geometry.setDrawRange(0, 0);
+  }
+  function clearTrails() {
+    trailCount = 0;
+    trailLine.geometry.setDrawRange(0, 0);
+    lastTrailLine.geometry.setDrawRange(0, 0);
+  }
+
+  // ------------------------------------------------ puntitos de puntería
+  const AIM_N = 13;
+  const aimDots = [];
+  for (let i = 0; i < AIM_N; i++) {
+    const d = new THREE.Mesh(
+      new THREE.SphereGeometry(0.34, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xfff2c0, transparent: true, opacity: 0.55 * (1 - i / AIM_N), toneMapped: false })
+    );
+    scene.add(d);
+    aimDots.push(d);
+  }
+  function updateAim() {
+    const show = !state.banana && !state.celebrating;
+    const angle = (+ui.angle.value) * Math.PI / 180;
+    const v0 = (+ui.power.value) * CFG.powerToV;
+    let x = CFG.gorillaX + CFG.handOffset.x, y = CFG.handOffset.y;
+    let vx = Math.cos(angle) * v0, vy = Math.sin(angle) * v0;
+    const step = 0.07;
+    for (let i = 0; i < AIM_N; i++) {
+      vx += state.wind * step;
+      vy -= CFG.gravity * step;
+      x += vx * step;
+      y += vy * step;
+      aimDots[i].visible = show;
+      aimDots[i].position.set(x, y, 0.4);
     }
   }
 
+  // ------------------------------------------------ partículas
+  const P_N = 700;
+  const pGeo = new THREE.BufferGeometry();
+  const pPos = new Float32Array(P_N * 3);
+  const pCol = new Float32Array(P_N * 3);
+  pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+  pGeo.setAttribute("color", new THREE.BufferAttribute(pCol, 3));
+  const particles = [];
+  for (let i = 0; i < P_N; i++) {
+    particles.push({ active: false, vx: 0, vy: 0, vz: 0, t: 0, life: 1, r: 0, g: 0, b: 0 });
+    pPos[i * 3 + 1] = -9999;
+  }
+  const pointsMesh = new THREE.Points(pGeo, new THREE.PointsMaterial({
+    size: 0.85, vertexColors: true, transparent: true,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  pointsMesh.frustumCulled = false;
+  scene.add(pointsMesh);
+
+  function spawnParticles(x, y, colorList, n, speed = [8, 60], up = 0) {
+    for (let k = 0; k < n; k++) {
+      const i = particles.findIndex(p => !p.active);
+      if (i < 0) return;
+      const p = particles[i];
+      const col = new THREE.Color(colorList[(Math.random() * colorList.length) | 0]);
+      const a = Math.random() * Math.PI * 2;
+      const sp = rand(speed[0], speed[1]);
+      p.active = true;
+      p.t = 0;
+      p.life = rand(0.5, 1.4);
+      p.vx = Math.cos(a) * sp;
+      p.vy = Math.abs(Math.sin(a)) * sp * 0.8 + up;
+      p.vz = rand(-6, 6);
+      p.r = col.r; p.g = col.g; p.b = col.b;
+      pPos[i * 3] = x + rand(-0.5, 0.5);
+      pPos[i * 3 + 1] = y + rand(-0.5, 0.5);
+      pPos[i * 3 + 2] = rand(-0.5, 0.5);
+    }
+  }
+  function updateParticles(dt) {
+    let any = false;
+    for (let i = 0; i < P_N; i++) {
+      const p = particles[i];
+      if (!p.active) continue;
+      any = true;
+      p.t += dt;
+      if (p.t > p.life || pPos[i * 3 + 1] < -1) {
+        p.active = false;
+        pPos[i * 3 + 1] = -9999;
+        continue;
+      }
+      p.vy -= CFG.gravity * 0.55 * dt;
+      pPos[i * 3] += p.vx * dt;
+      pPos[i * 3 + 1] += p.vy * dt;
+      pPos[i * 3 + 2] += p.vz * dt;
+      const f = 1 - p.t / p.life;
+      pCol[i * 3] = p.r * f;
+      pCol[i * 3 + 1] = p.g * f;
+      pCol[i * 3 + 2] = p.b * f;
+    }
+    if (any) {
+      pGeo.attributes.position.needsUpdate = true;
+      pGeo.attributes.color.needsUpdate = true;
+    }
+  }
+
+  // ==================================================================
+  // Niveles
+  // ==================================================================
   function placeBasket() {
-    const b = state.basket;
-    const minX = W * 0.48, maxX = W - 90;
-    b.x = rand(minX, maxX);
-    // A partir del nivel 2 el canasto puede estar elevado sobre un pedestal
-    const maxPedestal = Math.min(280, 40 + state.level * 45);
-    b.pedestalH = state.level === 1 ? 0 : (Math.random() < 0.35 ? 0 : rand(50, maxPedestal));
-    b.y = GROUND_Y - b.pedestalH;   // y = base del canasto
+    const k = state.basket;
+    k.x = rand(CFG.basketMinX, CFG.basketMaxX);
+    const maxPed = Math.min(16, 3 + state.level * 2.5);
+    k.pedestalH = state.level === 1 ? 0 : (Math.random() < 0.35 ? 0 : rand(4, maxPed));
+    k.baseY = k.pedestalH;
+    k.rimY = k.baseY + CFG.basketH;
+    basketGroup.position.set(k.x, k.baseY, 0);
+    const hasPed = k.pedestalH > 0;
+    pedestal.visible = pedestalCap.visible = hasPed;
+    if (hasPed) {
+      pedestal.scale.y = k.pedestalH;
+      pedestal.position.set(k.x, k.pedestalH / 2, 0);
+      pedestalCap.position.set(k.x, k.pedestalH - 0.25, 0);
+    }
   }
 
   function setWind() {
     if (state.level < 3) { state.wind = 0; ui.windChip.style.display = "none"; return; }
-    const max = Math.min(70, 15 + state.level * 8);
+    const max = Math.min(6, 1 + state.level * 0.7);
     state.wind = rand(-max, max);
-    if (Math.abs(state.wind) < 8) state.wind = 0;
+    if (Math.abs(state.wind) < 0.8) state.wind = 0;
     ui.windChip.style.display = state.wind === 0 ? "none" : "flex";
-    ui.windTxt.textContent = Math.abs(state.wind).toFixed(0);
+    ui.windTxt.textContent = Math.round(Math.abs(state.wind) * 10);
     ui.windArrow.textContent = state.wind > 0 ? "→" : "←";
   }
 
   function newLevel(first = false) {
-    makeBuildings();
+    makeCity();
     placeBasket();
     setWind();
-    state.trail = [];
-    state.lastTrail = [];
+    clearTrails();
     state.banana = null;
+    bananaFly.visible = false;
+    bananaHand.visible = true;
     state.celebrating = false;
     ui.levelTxt.textContent = state.level;
     ui.throwBtn.disabled = false;
-    if (!first) {
-      showBanner(`¡NIVEL ${state.level}!`, "El canasto se movió… encontralo de nuevo 🧺");
-    }
+    if (!first) showBanner(`¡NIVEL ${state.level}!`, "El canasto se movió… encontralo de nuevo 🧺");
   }
 
   function showBanner(title, sub, ms = 1900) {
@@ -384,45 +867,38 @@
     showBanner._t = setTimeout(() => ui.banner.classList.remove("show"), ms);
   }
 
-  // ------------------------------------------------------------------
+  // ==================================================================
   // Lanzamiento y física
-  // ------------------------------------------------------------------
-  function handPos() {
-    const g = state.gorilla;
-    return { x: g.x + 34, y: g.y - 92 };
-  }
-
+  // ==================================================================
   function throwBanana() {
     if (state.banana || state.celebrating) return;
     const angle = (+ui.angle.value) * Math.PI / 180;
-    const v0 = (+ui.power.value) * 9.6;
-    const h = handPos();
-    state.banana = {
-      x: h.x, y: h.y,
-      vx: Math.cos(angle) * v0,
-      vy: -Math.sin(angle) * v0,
-      rot: 0,
-    };
-    state.trail = [];
+    const v0 = (+ui.power.value) * CFG.powerToV;
+    const x = CFG.gorillaX + CFG.handOffset.x, y = CFG.handOffset.y;
+    state.banana = { x, y, px: x, py: y, vx: Math.cos(angle) * v0, vy: Math.sin(angle) * v0 };
     state.tries++;
     ui.triesTxt.textContent = state.tries;
     ui.throwBtn.disabled = true;
-    state.gorilla.armUp = 1;
+    state.armUp = 1;
+    bananaHand.visible = false;
+    bananaFly.visible = true;
     sndThrow();
   }
 
   function endThrow(hit) {
-    state.lastTrail = state.trail.slice();
-    state.trail = [];
+    commitTrailToLast();
     state.banana = null;
+    bananaFly.visible = false;
     if (hit) {
       state.celebrating = true;
       sndScore();
-      celebrate();
+      const k = state.basket;
+      spawnParticles(k.x, k.rimY + 1, [0xffd54a, 0xff9d2e, 0x7cf29c, 0x7cc4ff, 0xff7ce0, 0xffffff], 130, [15, 55], 20);
       showBanner("🎯 ¡EMBOCASTE!", `Nivel ${state.level} superado`, 1600);
-      setTimeout(() => { state.level++; newLevel(); }, 1800);
+      setTimeout(() => { state.level++; newLevel(); }, 1900);
     } else {
       sndMiss();
+      bananaHand.visible = true;
       ui.throwBtn.disabled = false;
     }
   }
@@ -430,434 +906,87 @@
   function updateBanana(dt) {
     const b = state.banana;
     if (!b) return;
+    b.px = b.x; b.py = b.y;
     b.vx += state.wind * dt;
-    b.vy += GRAVITY * dt;
+    b.vy -= CFG.gravity * dt;
     b.x += b.vx * dt;
     b.y += b.vy * dt;
-    b.rot += dt * 14;
-    state.trail.push({ x: b.x, y: b.y });
-    if (state.trail.length > 240) state.trail.shift();
+    pushTrail(b.x, b.y);
+
+    bananaFly.position.set(b.x, b.y, 0);
+    bananaFly.rotation.z -= dt * 9;
+    bananaFly.rotation.y = Math.sin(state.time * 4) * 0.3;
 
     const k = state.basket;
-    const rimY = k.y - k.h;                 // boca del canasto
-    const rimHalf = k.w * 0.42;
+    const dx = Math.abs(b.x - k.x);
 
-    // ¿Entró por la boca? (cayendo, dentro del ancho de la boca, cruzando el borde)
-    if (b.vy > 0 && Math.abs(b.x - k.x) < rimHalf && b.y > rimY - 6 && b.y < rimY + 26) {
-      puff(b.x, rimY, "#ffd54a", 26);
+    // ¿entró por la boca? (cayendo y cruzando el plano del aro dentro del radio)
+    if (b.vy < 0 && dx < CFG.rimR * 0.78 && b.py >= k.rimY && b.y < k.rimY + 0.3) {
+      spawnParticles(k.x, k.rimY, [0xffd54a, 0xfff2c0], 30, [6, 25], 10);
       endThrow(true);
       return;
     }
-    // Golpe contra el cuerpo del canasto o el pedestal → falla
-    const hitBasketSide = b.y > rimY && b.y < k.y && Math.abs(b.x - k.x) < k.w * 0.55;
-    const hitPedestal = k.pedestalH > 0 && b.y > k.y && b.y < GROUND_Y && Math.abs(b.x - k.x) < 34;
-    if (hitBasketSide || hitPedestal) {
-      puff(b.x, b.y, "#c9d4ff", 14);
-      state.shake = 6;
+    // golpe al cuerpo del canasto
+    if (b.y < k.rimY && b.y > k.baseY - 0.3 && dx < CFG.rimR * 1.15) {
+      spawnParticles(b.x, b.y, [0xc9d4ff, 0x8892b8], 16, [5, 22], 6);
+      state.shake = 1.4;
       endThrow(false);
       return;
     }
-    // Piso o fuera de pantalla
-    if (b.y > GROUND_Y) {
-      puff(b.x, GROUND_Y, "#8b7355", 16);
-      state.shake = 5;
+    // golpe al pedestal
+    if (k.pedestalH > 0 && b.y < k.baseY && b.y > 0 && dx < 2.7) {
+      spawnParticles(b.x, b.y, [0xb0a0c8, 0x8892b8], 14, [5, 20], 5);
+      state.shake = 1.2;
       endThrow(false);
       return;
     }
-    if (b.x > W + 120 || b.x < -120 || b.y > H + 200) {
+    // piso
+    if (b.y < 0.45) {
+      spawnParticles(b.x, 0.4, [0x9a8360, 0x6d5c40], 18, [5, 24], 8);
+      state.shake = 1.1;
       endThrow(false);
+      return;
     }
+    // fuera de límites
+    if (b.x > CFG.boundsX || b.x < -CFG.boundsX) endThrow(false);
   }
 
-  // ------------------------------------------------------------------
-  // Partículas
-  // ------------------------------------------------------------------
-  function puff(x, y, color, n) {
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const sp = rand(30, 190);
-      state.particles.push({
-        x, y,
-        vx: Math.cos(a) * sp,
-        vy: Math.sin(a) * sp - 60,
-        life: rand(0.4, 0.9),
-        t: 0,
-        r: rand(1.5, 4),
-        color,
-      });
-    }
-  }
-
-  function celebrate() {
-    const k = state.basket;
-    const colors = ["#ffd54a", "#ff9d2e", "#7cf29c", "#7cc4ff", "#ff7ce0", "#ffffff"];
-    for (let i = 0; i < 90; i++) {
-      const a = rand(-Math.PI * 0.9, -Math.PI * 0.1);
-      const sp = rand(120, 420);
-      state.particles.push({
-        x: k.x + rand(-20, 20),
-        y: k.y - k.h,
-        vx: Math.cos(a) * sp,
-        vy: Math.sin(a) * sp,
-        life: rand(0.8, 1.7),
-        t: 0,
-        r: rand(2, 5),
-        color: colors[(Math.random() * colors.length) | 0],
-      });
-    }
-  }
-
-  function updateParticles(dt) {
-    for (let i = state.particles.length - 1; i >= 0; i--) {
-      const p = state.particles[i];
-      p.t += dt;
-      if (p.t > p.life) { state.particles.splice(i, 1); continue; }
-      p.vy += GRAVITY * 0.6 * dt;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-    }
-  }
-
-  // ------------------------------------------------------------------
-  // Dibujo
-  // ------------------------------------------------------------------
-  function drawSky() {
-    const grd = ctx.createLinearGradient(0, 0, 0, H);
-    grd.addColorStop(0, "#0d1233");
-    grd.addColorStop(0.45, "#252a63");
-    grd.addColorStop(0.75, "#54408c");
-    grd.addColorStop(1, "#8a4a7d");
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, 0, W, H);
-
-    // estrellas titilantes
-    for (const s of state.stars) {
-      const a = 0.35 + 0.65 * Math.abs(Math.sin(state.time * s.tw + s.ph));
-      ctx.globalAlpha = a;
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-
-    // luna
-    const mx = W * 0.82, my = H * 0.16;
-    const glow = ctx.createRadialGradient(mx, my, 10, mx, my, 90);
-    glow.addColorStop(0, "rgba(255,250,220,.9)");
-    glow.addColorStop(0.3, "rgba(255,250,220,.25)");
-    glow.addColorStop(1, "rgba(255,250,220,0)");
-    ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(mx, my, 90, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#fdf6d8";
-    ctx.beginPath(); ctx.arc(mx, my, 30, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "rgba(210,200,160,.5)";
-    ctx.beginPath(); ctx.arc(mx - 9, my - 6, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(mx + 8, my + 9, 4, 0, Math.PI * 2); ctx.fill();
-  }
-
-  function drawBuildings() {
-    for (const b of state.buildings) {
-      const top = GROUND_Y - b.h;
-      ctx.fillStyle = b.color;
-      ctx.fillRect(b.x, top, b.w, b.h);
-      // brillo lateral sutil
-      ctx.fillStyle = "rgba(255,255,255,.05)";
-      ctx.fillRect(b.x, top, 6, b.h);
-      for (const w of b.windows) {
-        ctx.fillStyle = w.lit ? "rgba(255,214,110,.85)" : "rgba(10,14,30,.8)";
-        ctx.fillRect(b.x + w.x, top + w.y, 8, 11);
-      }
-    }
-  }
-
-  function drawGround() {
-    const grd = ctx.createLinearGradient(0, GROUND_Y, 0, H);
-    grd.addColorStop(0, "#2e3d2b");
-    grd.addColorStop(1, "#141c12");
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
-    ctx.fillStyle = "rgba(255,255,255,.08)";
-    ctx.fillRect(0, GROUND_Y, W, 3);
-  }
-
-  function drawGorilla() {
-    const g = state.gorilla;
-    const x = g.x, y = g.y;
-    const arm = g.armUp;                       // 0 = reposo, 1 = brazo arriba
-    ctx.save();
-    ctx.translate(x, y);
-
-    // sombra
-    ctx.fillStyle = "rgba(0,0,0,.35)";
-    ctx.beginPath(); ctx.ellipse(0, 2, 52, 10, 0, 0, Math.PI * 2); ctx.fill();
-
-    const fur = "#3a3f47", furDark = "#2b2f36", skin = "#8f8577";
-
-    // piernas
-    ctx.fillStyle = furDark;
-    ctx.beginPath(); ctx.ellipse(-22, -16, 16, 20, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(22, -16, 16, 20, 0, 0, Math.PI * 2); ctx.fill();
-
-    // torso
-    const torso = ctx.createRadialGradient(-10, -66, 8, 0, -52, 55);
-    torso.addColorStop(0, "#4a505a");
-    torso.addColorStop(1, fur);
-    ctx.fillStyle = torso;
-    ctx.beginPath(); ctx.ellipse(0, -52, 38, 42, 0, 0, Math.PI * 2); ctx.fill();
-
-    // pecho
-    ctx.fillStyle = skin;
-    ctx.beginPath(); ctx.ellipse(0, -46, 22, 26, 0, 0, Math.PI * 2); ctx.fill();
-
-    // brazo izquierdo (apoya en el piso)
-    ctx.strokeStyle = fur;
-    ctx.lineWidth = 17;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(-28, -62);
-    ctx.quadraticCurveTo(-52, -40, -50, -6);
-    ctx.stroke();
-
-    // brazo derecho — el que lanza (interpola reposo → arriba)
-    const sx = 28, sy = -62;
-    const restEnd = { x: 50, y: -6 },   upEnd  = { x: 36, y: -94 };
-    const restCtl = { x: 52, y: -40 },  upCtl  = { x: 58, y: -84 };
-    const ex = restEnd.x + (upEnd.x - restEnd.x) * arm;
-    const ey = restEnd.y + (upEnd.y - restEnd.y) * arm;
-    const cx2 = restCtl.x + (upCtl.x - restCtl.x) * arm;
-    const cy2 = restCtl.y + (upCtl.y - restCtl.y) * arm;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.quadraticCurveTo(cx2, cy2, ex, ey);
-    ctx.stroke();
-    // mano
-    ctx.fillStyle = furDark;
-    ctx.beginPath(); ctx.arc(ex, ey, 9, 0, Math.PI * 2); ctx.fill();
-
-    // cabeza
-    ctx.fillStyle = fur;
-    ctx.beginPath(); ctx.ellipse(0, -100, 24, 21, 0, 0, Math.PI * 2); ctx.fill();
-    // cresta
-    ctx.beginPath(); ctx.ellipse(0, -116, 12, 8, 0, 0, Math.PI * 2); ctx.fill();
-    // cara
-    ctx.fillStyle = skin;
-    ctx.beginPath(); ctx.ellipse(2, -96, 15, 13, 0, 0, Math.PI * 2); ctx.fill();
-    // ojos
-    ctx.fillStyle = "#181a1e";
-    ctx.beginPath(); ctx.arc(-3, -101, 2.6, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(8, -101, 2.6, 0, Math.PI * 2); ctx.fill();
-    // brillo en ojos
-    ctx.fillStyle = "#fff";
-    ctx.beginPath(); ctx.arc(-2.2, -101.8, 0.9, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(8.8, -101.8, 0.9, 0, Math.PI * 2); ctx.fill();
-    // fosas nasales
-    ctx.fillStyle = "#181a1e";
-    ctx.beginPath(); ctx.arc(0, -92, 1.6, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(6, -92, 1.6, 0, Math.PI * 2); ctx.fill();
-    // boca
-    ctx.strokeStyle = "#181a1e";
-    ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.arc(3, -90, 6, 0.25 * Math.PI, 0.75 * Math.PI); ctx.stroke();
-
-    ctx.restore();
-  }
-
-  function drawBananaShape(x, y, rot, scale = 1) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(rot);
-    ctx.scale(scale, scale);
-    ctx.fillStyle = "#ffd23e";
-    ctx.beginPath();
-    ctx.arc(0, -6, 13, 0.15 * Math.PI, 0.85 * Math.PI);
-    ctx.arc(0, -13, 19, 0.78 * Math.PI, 0.22 * Math.PI, true);
-    ctx.closePath();
-    ctx.fill();
-    // puntas
-    ctx.fillStyle = "#8a6a12";
-    ctx.beginPath(); ctx.arc(-12, -2.5, 2.2, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(12, -2.5, 2.2, 0, Math.PI * 2); ctx.fill();
-    // brillo
-    ctx.strokeStyle = "rgba(255,255,255,.55)";
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(0, -8, 9, 0.3 * Math.PI, 0.7 * Math.PI); ctx.stroke();
-    ctx.restore();
-  }
-
-  function drawBasket() {
-    const k = state.basket;
-    ctx.save();
-    ctx.translate(k.x, k.y);
-
-    // pedestal
-    if (k.pedestalH > 0) {
-      const pg = ctx.createLinearGradient(-30, 0, 30, 0);
-      pg.addColorStop(0, "#5d4a6e");
-      pg.addColorStop(0.5, "#7c6591");
-      pg.addColorStop(1, "#4a3a59");
-      ctx.fillStyle = pg;
-      ctx.fillRect(-30, 0, 60, k.pedestalH);
-      ctx.fillStyle = "rgba(255,255,255,.12)";
-      ctx.fillRect(-34, -2, 68, 6);
-      ctx.fillStyle = "rgba(0,0,0,.25)";
-      for (let yy = 18; yy < k.pedestalH; yy += 22) ctx.fillRect(-30, yy, 60, 2);
-    }
-
-    // sombra del canasto
-    ctx.fillStyle = "rgba(0,0,0,.3)";
-    ctx.beginPath(); ctx.ellipse(0, 2, k.w * 0.5, 7, 0, 0, Math.PI * 2); ctx.fill();
-
-    // cuerpo (trapecio con mimbre)
-    const topW = k.w, botW = k.w * 0.66, h = k.h;
-    const bg = ctx.createLinearGradient(0, -h, 0, 0);
-    bg.addColorStop(0, "#c98d3e");
-    bg.addColorStop(1, "#8a5a22");
-    ctx.fillStyle = bg;
-    ctx.beginPath();
-    ctx.moveTo(-topW / 2, -h);
-    ctx.lineTo(topW / 2, -h);
-    ctx.lineTo(botW / 2, 0);
-    ctx.lineTo(-botW / 2, 0);
-    ctx.closePath();
-    ctx.fill();
-
-    // tejido horizontal
-    ctx.strokeStyle = "rgba(80,45,10,.5)";
-    ctx.lineWidth = 2;
-    for (let i = 1; i < 4; i++) {
-      const t = i / 4;
-      const yw = -h + t * h;
-      const hw = (topW + (botW - topW) * t) / 2;
-      ctx.beginPath();
-      ctx.moveTo(-hw, yw);
-      ctx.quadraticCurveTo(0, yw + 4, hw, yw);
-      ctx.stroke();
-    }
-    // tejido vertical
-    for (let i = -2; i <= 2; i++) {
-      ctx.beginPath();
-      ctx.moveTo(i * topW / 6, -h);
-      ctx.lineTo(i * botW / 6, 0);
-      ctx.stroke();
-    }
-
-    // boca (elipse del borde)
-    ctx.fillStyle = "#3d2508";
-    ctx.beginPath(); ctx.ellipse(0, -h, topW / 2, 10, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#e8b05e";
-    ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.ellipse(0, -h, topW / 2, 10, 0, 0, Math.PI * 2); ctx.stroke();
-
-    // flechita indicadora flotante
-    const bob = Math.sin(state.time * 3) * 6;
-    ctx.fillStyle = "rgba(255,213,74,.9)";
-    ctx.beginPath();
-    ctx.moveTo(0, -h - 34 + bob);
-    ctx.lineTo(-9, -h - 50 + bob);
-    ctx.lineTo(9, -h - 50 + bob);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.restore();
-  }
-
-  function drawAimPreview() {
-    if (state.banana || state.celebrating) return;
-    const angle = (+ui.angle.value) * Math.PI / 180;
-    const v0 = (+ui.power.value) * 9.6;
-    const h = handPos();
-    let px = h.x, py = h.y;
-    let vx = Math.cos(angle) * v0, vy = -Math.sin(angle) * v0;
-    ctx.fillStyle = "rgba(255,255,255,.5)";
-    const step = 0.055;
-    for (let i = 0; i < 11; i++) {
-      vx += state.wind * step;
-      vy += GRAVITY * step;
-      px += vx * step;
-      py += vy * step;
-      ctx.globalAlpha = 0.55 * (1 - i / 12);
-      ctx.beginPath();
-      ctx.arc(px, py, 3.4 - i * 0.18, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  function drawTrail(trail, alpha) {
-    if (trail.length < 2) return;
-    ctx.save();
-    ctx.lineCap = "round";
-    for (let i = 1; i < trail.length; i++) {
-      const t = i / trail.length;
-      ctx.strokeStyle = `rgba(255, 214, 90, ${alpha * t * t})`;
-      ctx.lineWidth = 1 + 3.4 * t;
-      ctx.beginPath();
-      ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
-      ctx.lineTo(trail[i].x, trail[i].y);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  function drawParticles() {
-    for (const p of state.particles) {
-      const a = 1 - p.t / p.life;
-      ctx.globalAlpha = a;
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r * (0.5 + a * 0.5), 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  // ------------------------------------------------------------------
+  // ==================================================================
   // Bucle principal
-  // ------------------------------------------------------------------
-  let lastT = performance.now();
-  function frame(now) {
-    const dt = Math.min(0.033, (now - lastT) / 1000);
-    lastT = now;
+  // ==================================================================
+  const clock = new THREE.Clock();
+  function frame() {
+    requestAnimationFrame(frame);
+    const dt = Math.min(0.033, clock.getDelta());
     state.time += dt;
 
-    // física
     updateBanana(dt);
     updateParticles(dt);
-    if (state.gorilla.armUp > 0 && !state.banana) {
-      state.gorilla.armUp = Math.max(0, state.gorilla.armUp - dt * 3);
-    }
-    if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 22);
+    updateAim();
 
-    // render
-    ctx.save();
-    if (state.shake > 0.2) {
-      ctx.translate(rand(-state.shake, state.shake), rand(-state.shake, state.shake));
-    }
-    drawSky();
-    drawBuildings();
-    drawGround();
-    drawTrail(state.lastTrail, 0.16);
-    drawTrail(state.trail, 0.85);
-    drawBasket();
-    drawGorilla();
-    drawAimPreview();
-    if (state.banana) {
-      drawBananaShape(state.banana.x, state.banana.y, state.banana.rot, 1.25);
-    } else if (!state.celebrating) {
-      // banana en la mano, lista para lanzar
-      const h = handPos();
-      drawBananaShape(h.x, h.y - 4, -0.4, 0.8);
-    }
-    drawParticles();
-    ctx.restore();
+    // animaciones
+    if (state.armUp > 0 && !state.banana) state.armUp = Math.max(0, state.armUp - dt * 3);
+    armGroup.rotation.z = lerp(0.5, 2.55, state.armUp);
+    arrow.position.set(0, CFG.basketH + 3.4 + Math.sin(state.time * 3) * 0.7, 0);
+    arrow.rotation.y = state.time * 1.2;
+    gorilla.position.y = state.celebrating ? Math.abs(Math.sin(state.time * 9)) * 1.3 : 0;
+    starMat.opacity = 0.7 + 0.25 * Math.sin(state.time * 1.7);
 
-    requestAnimationFrame(frame);
+    // cámara: leve seguimiento de la banana + shake
+    if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 4);
+    const followX = state.banana ? (state.banana.x - camLook.x) * 0.12 : 0;
+    const followY = state.banana ? Math.max(0, state.banana.y - 26) * 0.15 : 0;
+    camera.position.x = camBase.x + followX + rand(-state.shake, state.shake);
+    camera.position.y = camBase.y + followY + rand(-state.shake, state.shake);
+    camera.position.z = camBase.z;
+    camera.lookAt(camLook.x + followX, camLook.y + followY, 0);
+
+    renderer.render(scene, camera);
   }
 
-  // ------------------------------------------------------------------
+  // ==================================================================
   // Controles
-  // ------------------------------------------------------------------
+  // ==================================================================
   function syncSlider(input, out, suffix) {
     const pct = (input.value - input.min) / (input.max - input.min) * 100;
     input.style.setProperty("--fill", pct + "%");
@@ -881,16 +1010,28 @@
     }
   });
 
-  // ------------------------------------------------------------------
+  // hint de rotación en celus verticales
+  function checkOrientation() {
+    const portrait = window.innerHeight > window.innerWidth * 1.2;
+    const touch = "ontouchstart" in window;
+    if (portrait && touch && !checkOrientation._shown) {
+      checkOrientation._shown = true;
+      ui.rotateHint.classList.add("show");
+      setTimeout(() => ui.rotateHint.classList.remove("show"), 3500);
+    }
+  }
+
+  // ==================================================================
   // Arranque
-  // ------------------------------------------------------------------
-  window.__game = state;   // útil para depurar / testear
-  makeStars();
+  // ==================================================================
+  window.__game = { state, CFG };   // útil para depurar / testear
+  fitCamera();
   newLevel(true);
   syncSlider(ui.angle, ui.angleOut, "°");
   syncSlider(ui.power, ui.powerOut, "");
-  showBanner("🦍 GORILLA BANANA", "Elegí ángulo y fuerza… ¡y embocá la banana! 🍌", 2600);
-  requestAnimationFrame(frame);
+  showBanner("🦍 GORILLA BANANA 3D", "Elegí ángulo y fuerza… ¡y embocá la banana! 🍌", 2600);
+  checkOrientation();
+  frame();
 })();
 </script>
 </body>
