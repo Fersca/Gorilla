@@ -315,7 +315,7 @@
       moveMsg: "El canasto se movió… buscalo entre la selva 🌴",
     },
     basquet: {
-      name: "Básquet", emoji: "🏀", next: "ciudad",
+      name: "Básquet", emoji: "🏀", next: "arquero",
       fog: 0x453a75,
       skyStops: [[0, "#070a1c"], [0.26, "#1a2050"], [0.44, "#4a3a80"], [0.52, "#8a4a7d"], [1, "#8a4a7d"]],
       groundColor: 0x191b1f,
@@ -326,6 +326,19 @@
       throwLabel: "🏀 ¡TIRAR!",
       sub: "Estadio lleno: el aro no se mueve… vos sí 🏀",
       moveMsg: "Cambiaste de posición en la cancha… ¡encestá! 🏀",
+    },
+    arquero: {
+      name: "Arquero", emoji: "🏹", next: "ciudad",
+      fog: 0x48604e,
+      skyStops: [[0, "#0a1420"], [0.26, "#173442"], [0.44, "#2e5a50"], [0.52, "#5d7a55"], [1, "#5d7a55"]],
+      groundColor: 0x1d3312,
+      thrower: "archer", projectile: "arrow", target: "bullseye", targetMesh: "bullseye",
+      handOffset: { x: 3.7, y: 12.1 },
+      rimR: 2.0,                 // radio del blanco (los aros pintados)
+      randomEnv: true,
+      throwLabel: "🏹 ¡DISPARAR!",
+      sub: "Bosque medieval: clavá la flecha en el blanco 🎯",
+      moveMsg: "El blanco se movió… apuntá de nuevo 🏹",
     },
   };
 
@@ -440,6 +453,9 @@
     if (kind === "ball") {
       whoosh(0.35, 180, 750, 0.32);            // grave, pelota pesada
       beep(140, 0.08, "sine", 0.1);
+    } else if (kind === "arrow") {
+      plop(750, 240, 0.07, 0.22);              // ¡twang! de la cuerda
+      whoosh(0.35, 1400, 2600, 0.18, 0.02, "bandpass", 3); // silbido fino
     } else if (kind === "rock") {
       whoosh(0.4, 90, 380, 0.36, 0, "lowpass"); // piedra: aire grave
       plop(90, 55, 0.12, 0.18);
@@ -460,6 +476,10 @@
       // swish de la red + pique
       whoosh(0.3, 2400, 700, 0.3, 0, "bandpass", 2.2);
       plop(220, 95, 0.14, 0.12, 0.1);
+    } else if (targetMesh === "bullseye") {
+      // ¡thock! de la flecha clavándose en la paja
+      plop(240, 75, 0.08, 0.38);
+      whoosh(0.12, 900, 280, 0.3, 0, "lowpass");
     } else {
       // plop en el mimbre
       plop(330, 85, 0.2, 0.32);
@@ -920,6 +940,110 @@
     }
   }
 
+  // ---------- bosque medieval ----------
+  function buildForest(group) {
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a4028, roughness: 0.95 });
+    const pineMat = new THREE.MeshStandardMaterial({ color: 0x1e4d2b, roughness: 0.9 });
+    const oakMats = [0x2a5e2a, 0x35702f, 0x3f7a35].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }));
+    const inPlayArea = (x, z) => x > -52 && x < 54 && z > -34 && z < 22;
+
+    // árboles: pinos y robles
+    for (let i = 0; i < 55; i++) {
+      const x = rand(-145, 145), z = rand(-100, 50);
+      if (inPlayArea(x, z)) continue;
+      if (z > -12 && Math.abs(x) < 75) continue;
+      const s = z > -12 ? rand(0.7, 1.1) : rand(0.8, 1.9);
+      const tree = new THREE.Group();
+      if (Math.random() < 0.5) {
+        // pino: conos apilados
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 3, 7), trunkMat);
+        trunk.position.y = 1.5;
+        trunk.castShadow = true;
+        tree.add(trunk);
+        for (let k = 0; k < 3; k++) {
+          const cone = new THREE.Mesh(new THREE.ConeGeometry(3.4 - k * 0.9, 3.4, 9), pineMat);
+          cone.position.y = 4 + k * 2.4;
+          cone.castShadow = true;
+          tree.add(cone);
+        }
+      } else {
+        // roble de copa redonda
+        const th = rand(3.5, 7);
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.85, th, 7), trunkMat);
+        trunk.position.y = th / 2;
+        trunk.castShadow = true;
+        tree.add(trunk);
+        for (let b = 0; b < 3; b++) {
+          const r = rand(2.2, 3.4);
+          const blob = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 9), oakMats[(Math.random() * oakMats.length) | 0]);
+          blob.position.set(rand(-1.4, 1.4), th + rand(-0.4, 2), rand(-1.4, 1.4));
+          blob.castShadow = true;
+          tree.add(blob);
+        }
+      }
+      tree.scale.setScalar(s);
+      tree.position.set(x, 0, z);
+      tree.rotation.y = rand(0, Math.PI * 2);
+      group.add(tree);
+    }
+
+    // casitas medievales al fondo
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.9 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x7a3b2a, roughness: 0.85 });
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x4a3016, roughness: 0.9 });
+    const winMat = new THREE.MeshStandardMaterial({ color: 0xffd876, emissive: 0xffca55, emissiveIntensity: 0.8 });
+    for (let i = 0; i < 6; i++) {
+      const hx = rand(-110, 110), hz = rand(-75, -32);
+      if (Math.abs(hx) < 20 && hz > -45) continue;
+      const w = rand(9, 13), h = rand(5.5, 7.5), d = rand(8, 11);
+      const house = new THREE.Group();
+      const body = new THREE.Mesh(boxGeo, wallMat);
+      body.scale.set(w, h, d);
+      body.castShadow = true;
+      house.add(body);
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(w * 0.85, h * 0.7, 4), roofMat);
+      roof.position.y = h + h * 0.35;
+      roof.rotation.y = Math.PI / 4;
+      roof.castShadow = true;
+      house.add(roof);
+      const door = new THREE.Mesh(new THREE.BoxGeometry(1.8, 3, 0.3), doorMat);
+      door.position.set(rand(-w / 4, w / 4), 1.5, d / 2 + 0.1);
+      house.add(door);
+      for (let wnd = 0; wnd < 2; wnd++) {
+        const win = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.3, 0.25), winMat);
+        win.position.set((wnd ? 1 : -1) * w / 3.2, h * 0.6, d / 2 + 0.1);
+        house.add(win);
+      }
+      // chimenea
+      const chim = new THREE.Mesh(new THREE.BoxGeometry(1, 2.4, 1), doorMat);
+      chim.position.set(w / 4, h + 1.6, -d / 5);
+      house.add(chim);
+      house.position.set(hx, 0, hz);
+      house.rotation.y = rand(-0.4, 0.4);
+      group.add(house);
+    }
+
+    // flores en el prado
+    const flowerMats = [0xfff2f2, 0xffd54a, 0xff9dc8].map(c => new THREE.MeshBasicMaterial({ color: c }));
+    for (let i = 0; i < 70; i++) {
+      const x = rand(-90, 90), z = rand(-40, 26);
+      if (x > -48 && x < 50 && Math.abs(z) < 5) continue;   // corredor de tiro
+      const f = new THREE.Mesh(new THREE.SphereGeometry(rand(0.14, 0.26), 6, 5), flowerMats[i % 3]);
+      f.position.set(x, 0.35, z);
+      group.add(f);
+    }
+    // arbustos bajos en primer plano
+    for (let i = 0; i < 14; i++) {
+      const bush = new THREE.Mesh(
+        new THREE.SphereGeometry(rand(0.9, 1.7), 8, 6),
+        oakMats[(Math.random() * oakMats.length) | 0]
+      );
+      bush.position.set(rand(-70, 70), 0.55, rand(10, 22));
+      bush.scale.y = 0.65;
+      group.add(bush);
+    }
+  }
+
   let envGroup = null;
   function makeEnv() {
     if (envGroup) { scene.remove(envGroup); disposeGroup(envGroup); }
@@ -927,6 +1051,7 @@
     const sc = scen();
     if (sc.thrower === "player") buildCourt(envGroup);
     else if (state.scenKey === "selva") buildJungle(envGroup);
+    else if (state.scenKey === "arquero") buildForest(envGroup);
     else buildCity(envGroup);
     scene.add(envGroup);
   }
@@ -1103,8 +1228,92 @@
   police.add(policeArm);
   scene.add(police);
 
-  const THROWERS = { gorilla, player, police };
-  const ARMS = { gorilla: gorillaArm, player: playerArm, police: policeArm };
+  // ---------- arquero medieval ----------
+  const aTunic = new THREE.MeshStandardMaterial({ color: 0x4a6b35, roughness: 0.85 });
+  const aTunicDark = new THREE.MeshStandardMaterial({ color: 0x3a5429, roughness: 0.85 });
+  const aLeather = new THREE.MeshStandardMaterial({ color: 0x5a4028, roughness: 0.8 });
+  const aSkin = new THREE.MeshStandardMaterial({ color: 0xd2a075, roughness: 0.7 });
+  const aWood = new THREE.MeshStandardMaterial({ color: 0x6b4a26, roughness: 0.7 });
+
+  const archer = new THREE.Group();
+  {
+    for (const sx of [-0.8, 0.8]) {
+      const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.45, 2.6, 6, 12), aLeather);
+      leg.position.set(sx, 2.2, 0);
+      leg.castShadow = true;
+      archer.add(leg);
+      const boot = sphere(0.6, aLeather, 1.1, 0.6, 1.5);
+      boot.position.set(sx, 0.4, 0.25);
+      archer.add(boot);
+    }
+    // túnica: falda acampanada (vestimenta medieval)
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 2.3, 2.8, 14), aTunic);
+    skirt.position.set(0, 4.4, 0);
+    skirt.castShadow = true;
+    archer.add(skirt);
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(1.25, 2.6, 6, 14), aTunic);
+    torso.position.set(0, 7.3, 0);
+    torso.castShadow = true;
+    archer.add(torso);
+    const belt = new THREE.Mesh(new THREE.CylinderGeometry(1.34, 1.34, 0.5, 16), aLeather);
+    belt.position.set(0, 5.9, 0);
+    archer.add(belt);
+    const head = sphere(1.02, aSkin);
+    head.position.set(0, 10.5, 0.1);
+    archer.add(head);
+    // capucha medieval
+    const hood = new THREE.Mesh(new THREE.ConeGeometry(1.3, 2.2, 12), aTunicDark);
+    hood.position.set(0, 11.5, -0.15);
+    hood.rotation.x = -0.25;
+    archer.add(hood);
+    const hoodRim = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.22, 8, 16), aTunicDark);
+    hoodRim.position.set(0, 10.7, 0.1);
+    hoodRim.rotation.x = Math.PI / 2.4;
+    archer.add(hoodRim);
+    // carcaj a la espalda con puntas de flecha
+    const quiver = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.34, 2.8, 10), aLeather);
+    quiver.position.set(-0.7, 8.2, -1.35);
+    quiver.rotation.z = 0.35;
+    archer.add(quiver);
+    for (let i = 0; i < 3; i++) {
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.5, 6), aWood);
+      tip.position.set(-0.95 + i * 0.25, 9.8 + (i % 2) * 0.3, -1.35);
+      tip.rotation.z = 0.35;
+      archer.add(tip);
+    }
+    // brazo izquierdo sosteniendo el arco
+    const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 3.2, 6, 12), aTunic);
+    armL.geometry.translate(0, -1.9, 0);
+    armL.position.set(-1.75, 8.9, 0.15);
+    armL.rotation.z = -0.35;
+    armL.castShadow = true;
+    archer.add(armL);
+    // arco: media circunferencia con cuerda
+    const bow = new THREE.Group();
+    const bowArc = new THREE.Mesh(new THREE.TorusGeometry(2.3, 0.09, 8, 22, Math.PI), aWood);
+    bowArc.rotation.z = -Math.PI / 2;   // abre hacia -x, panza hacia +x (el blanco)
+    bow.add(bowArc);
+    const string = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 4.6, 6), new THREE.MeshBasicMaterial({ color: 0xd8d8c8 }));
+    bow.add(string);
+    bow.position.set(-3.1, 5.2, 0.5);
+    archer.add(bow);
+  }
+  const archerArm = new THREE.Group();
+  archerArm.position.set(1.75, 8.9, 0.2);
+  {
+    const armR = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 3.2, 6, 12), aTunic);
+    armR.geometry.translate(0, -1.9, 0);
+    armR.castShadow = true;
+    archerArm.add(armR);
+  }
+  const archerHand = sphere(0.5, aSkin);
+  archerHand.position.set(0, -3.9, 0);
+  archerArm.add(archerHand);
+  archer.add(archerArm);
+  scene.add(archer);
+
+  const THROWERS = { gorilla, player, police, archer };
+  const ARMS = { gorilla: gorillaArm, player: playerArm, police: policeArm, archer: archerArm };
   const activeThrower = () => THROWERS[scen().thrower];
   const activeArm = () => ARMS[scen().thrower];
 
@@ -1154,6 +1363,33 @@
     return m;
   }
 
+  function makeArrow(scale = 1) {
+    // apunta hacia +x
+    const g = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({ color: 0x8a6a3a, roughness: 0.7 });
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 4.2, 8), wood);
+    shaft.rotation.z = -Math.PI / 2;
+    shaft.castShadow = true;
+    g.add(shaft);
+    const head = new THREE.Mesh(
+      new THREE.ConeGeometry(0.22, 0.7, 8),
+      new THREE.MeshStandardMaterial({ color: 0x9aa2ac, roughness: 0.4, metalness: 0.6 })
+    );
+    head.rotation.z = -Math.PI / 2;
+    head.position.x = 2.4;
+    g.add(head);
+    // plumas
+    const featherMat = new THREE.MeshStandardMaterial({ color: 0xe04b3a, roughness: 0.8, side: THREE.DoubleSide });
+    for (let i = 0; i < 3; i++) {
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), featherMat);
+      f.position.x = -1.8;
+      f.rotation.x = i * Math.PI * 2 / 3;
+      g.add(f);
+    }
+    g.scale.setScalar(scale);
+    return g;
+  }
+
   function makeRock(scale = 1) {
     const m = new THREE.Mesh(
       new THREE.IcosahedronGeometry(0.85, 1),
@@ -1176,6 +1412,10 @@
   rockFly.rotation.order = "YZX";
   rockFly.visible = false;
   scene.add(rockFly);
+  const arrowFly = makeArrow(1.15);
+  arrowFly.rotation.order = "YZX";
+  arrowFly.visible = false;
+  scene.add(arrowFly);
 
   const bananaHand = makeBanana(0.7);
   bananaHand.position.set(0, -0.4, 0.9);
@@ -1186,9 +1426,13 @@
   const rockHand = makeRock(0.9);
   rockHand.position.set(0, -0.5, 0.6);
   policeHand.add(rockHand);
+  const arrowHand = makeArrow(0.85);
+  arrowHand.position.set(0.3, -0.3, 0.5);
+  arrowHand.rotation.z = 1.15;   // la sostiene apuntando arriba-adelante
+  archerHand.add(arrowHand);
 
-  const FLY = { banana: bananaFly, ball: ballFly, rock: rockFly };
-  const HAND = { banana: bananaHand, ball: ballHand, rock: rockHand };
+  const FLY = { banana: bananaFly, ball: ballFly, rock: rockFly, arrow: arrowFly };
+  const HAND = { banana: bananaHand, ball: ballHand, rock: rockHand, arrow: arrowHand };
   const flyItem = () => FLY[scen().projectile];
   const handItem = () => HAND[scen().projectile];
 
@@ -1310,6 +1554,64 @@
     }
   }
   scene.add(trashGroup);
+
+  // ---------- montículo de paja con blanco de arquería ----------
+  function strawTexture() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 128;
+    const g = c.getContext("2d");
+    g.fillStyle = "#d8b84a"; g.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 220; i++) {
+      g.strokeStyle = Math.random() < 0.5 ? "rgba(140,110,30,.5)" : "rgba(240,215,120,.6)";
+      g.lineWidth = 1.2;
+      const x = Math.random() * 128, y = Math.random() * 128;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + rand(-14, 14), y + rand(-5, 5));
+      g.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(4, 3);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  }
+  function ringsTexture() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const g = c.getContext("2d");
+    const rings = [[128, "#f2f2ea"], [102, "#222831"], [76, "#4aa3e0"], [50, "#e04b3a"], [25, "#ffd54a"]];
+    for (const [r, col] of rings) {
+      g.fillStyle = col;
+      g.beginPath();
+      g.arc(128, 128, r, 0, Math.PI * 2);
+      g.fill();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  }
+  const BULL = { cy: 5, moundH: 9, moundR: 5.2 };
+  const bullseyeGroup = new THREE.Group();
+  {
+    const straw = strawTexture();
+    const mound = new THREE.Mesh(
+      new THREE.SphereGeometry(5, 20, 14),
+      new THREE.MeshStandardMaterial({ map: straw, bumpMap: straw, bumpScale: 0.08, roughness: 1 })
+    );
+    mound.scale.set(1, 1.8, 1.04);
+    mound.position.set(3.8, 0.2, 0);
+    mound.castShadow = true;
+    bullseyeGroup.add(mound);
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(2.6, 30),
+      new THREE.MeshStandardMaterial({ map: ringsTexture(), roughness: 0.8 })
+    );
+    disc.rotation.y = -Math.PI / 2;
+    disc.position.set(-1.6, BULL.cy, 0);   // bien al frente de la paja
+    bullseyeGroup.add(disc);
+  }
+  scene.add(bullseyeGroup);
 
   const pedestalMat = new THREE.MeshStandardMaterial({ color: 0x554668, roughness: 0.8 });
   const pedestalCapMat = new THREE.MeshStandardMaterial({ color: 0x6f5c86, roughness: 0.7 });
@@ -1571,7 +1873,7 @@
     k.rimR = sc.rimR;
 
     if (sc.target === "basket") {
-      // el blanco se mueve, el gorila queda fijo
+      // el blanco se mueve, el lanzador queda fijo
       state.thrower.x = -38;
       state.thrower.z = 0;
       k.x = rand(4, 44);
@@ -1590,6 +1892,19 @@
         pedestal.position.set(k.x, k.pedestalH / 2, k.z);
         pedestalCap.position.set(k.x, k.pedestalH - 0.25, k.z);
       }
+    } else if (sc.target === "bullseye") {
+      // el montículo con el blanco se mueve, el arquero queda fijo
+      state.thrower.x = -38;
+      state.thrower.z = 0;
+      k.x = rand(4, 44);
+      const zAmp = Math.min(24, 2 + state.level * 4);
+      k.z = rand(-zAmp, Math.min(zAmp, 15));
+      k.pedestalH = 0;
+      k.baseY = 0;
+      k.cy = BULL.cy;
+      k.rimY = BULL.moundH;          // para la flecha indicadora
+      pedestal.visible = pedestalCap.visible = false;
+      bullseyeGroup.position.set(k.x, 0, k.z);
     } else {
       // básquet: el aro es fijo, se mueve el jugador por la cancha
       k.x = HOOP.x; k.z = HOOP.z;
@@ -1605,20 +1920,16 @@
     activeThrower().position.set(state.thrower.x, 0, state.thrower.z);
   }
 
-  function setWind(force = false) {
-    if (!state.windEnabled || (state.level < 3 && !force)) {
+  // ON = sopla siempre (se nota y se ven las hojas); OFF = tiro limpio
+  function setWind() {
+    if (!state.windEnabled) {
       state.wind = 0;
       ui.windChip.style.display = "none";
       return;
     }
     const max = Math.min(6, 1 + Math.max(state.level, 2) * 0.7);
-    state.wind = rand(-max, max);
-    if (force && Math.abs(state.wind) < 1.2) {
-      // si el jugador lo prendió a mano, que se note
-      state.wind = (state.wind >= 0 ? 1 : -1) * rand(1.5, max);
-    }
-    if (Math.abs(state.wind) < 0.8) state.wind = 0;
-    ui.windChip.style.display = state.wind === 0 ? "none" : "flex";
+    state.wind = (Math.random() < 0.5 ? -1 : 1) * rand(1.2, max);
+    ui.windChip.style.display = "flex";
     ui.windTxt.textContent = Math.round(Math.abs(state.wind) * 10);
     ui.windArrow.textContent = state.wind > 0 ? "→" : "←";
   }
@@ -1633,7 +1944,7 @@
     setWind();
     clearTrails();
     state.banana = null;
-    bananaFly.visible = ballFly.visible = rockFly.visible = false;
+    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = false;
     handItem().visible = true;
     state.celebrating = false;
     ui.levelTxt.textContent = state.level;
@@ -1651,9 +1962,11 @@
     gorilla.visible = sc.thrower === "gorilla";
     player.visible = sc.thrower === "player";
     police.visible = sc.thrower === "police";
+    archer.visible = sc.thrower === "archer";
     basketGroup.visible = sc.targetMesh === "wicker";
     trashGroup.visible = sc.targetMesh === "trash";
     hoopGroup.visible = sc.targetMesh === "hoop";
+    bullseyeGroup.visible = sc.targetMesh === "bullseye";
     if (sc.pedestalColors) {
       pedestalMat.color.setHex(sc.pedestalColors[0]);
       pedestalCapMat.color.setHex(sc.pedestalColors[1]);
@@ -1661,6 +1974,7 @@
     bananaHand.visible = sc.projectile === "banana";
     ballHand.visible = sc.projectile === "ball";
     rockHand.visible = sc.projectile === "rock";
+    arrowHand.visible = sc.projectile === "arrow";
     ui.throwBtn.textContent = sc.throwLabel;
     ui.scenBtn.textContent = `${sc.emoji} ${sc.name}`;
   }
@@ -1715,13 +2029,16 @@
   function endThrow(hit) {
     commitTrailToLast();
     state.banana = null;
-    bananaFly.visible = ballFly.visible = rockFly.visible = false;
+    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = false;
     if (hit) {
       state.celebrating = true;
       sndScore(scen().targetMesh);
       const k = state.basket;
       spawnParticles(k.x, k.rimY + 1, k.z, [0xffd54a, 0xff9d2e, 0x7cf29c, 0x7cc4ff, 0xff7ce0, 0xffffff], 130, [15, 55], 20);
-      showBanner(scen().target === "hoop" ? "🏀 ¡ENCESTASTE!" : "🎯 ¡EMBOCASTE!", `Nivel ${state.level} superado`, 1600);
+      const hitTitle = scen().target === "hoop" ? "🏀 ¡ENCESTASTE!"
+                     : scen().target === "bullseye" ? "🏹 ¡EN EL BLANCO!"
+                     : "🎯 ¡EMBOCASTE!";
+      showBanner(hitTitle, `Nivel ${state.level} superado`, 1600);
       setTimeout(() => { state.level++; newLevel(); }, 1900);
     } else {
       sndMiss();
@@ -1745,7 +2062,12 @@
     const item = flyItem();
     item.position.set(b.x, b.y, b.z);
     item.rotation.y = Math.atan2(-b.vz, b.vx);
-    item.rotation.z -= dt * 9;
+    if (scen().projectile === "arrow") {
+      // la flecha no gira: apunta siempre en la dirección del vuelo
+      item.rotation.z = Math.atan2(b.vy, Math.hypot(b.vx, b.vz));
+    } else {
+      item.rotation.z -= dt * 9;
+    }
   }
 
   function stepBanana(dt) {
@@ -1760,6 +2082,40 @@
     const sc = scen();
     const k = state.basket;
     const dh = Math.hypot(b.x - k.x, b.z - k.z);
+
+    // blanco de arquería: plano vertical en x = k.x (mira hacia el arquero)
+    if (sc.target === "bullseye") {
+      if (b.px <= k.x && b.x > k.x) {
+        const f = (k.x - b.px) / (b.x - b.px);
+        const cy = b.py + (b.y - b.py) * f;
+        const cz = b.pz + (b.z - b.pz) * f;
+        const dr = Math.hypot(cy - k.cy, cz - k.z);
+        if (dr < k.rimR) {
+          spawnParticles(k.x, cy, cz, [0xffd54a, 0xfff2c0], 26, [5, 20], 8);
+          endThrow(true);
+          // la flecha queda clavada en el blanco durante el festejo
+          arrowFly.visible = true;
+          arrowFly.position.set(k.x - 3.4, cy, cz);
+          arrowFly.rotation.set(0, 0, 0);
+          return;
+        }
+        const inMound = cy >= 0 && Math.pow(cy / BULL.moundH, 2) + Math.pow((cz - k.z) / BULL.moundR, 2) < 1;
+        if (inMound) {
+          spawnParticles(k.x, cy, cz, [0xd8b84a, 0xb89a3a], 18, [5, 22], 6);
+          state.shake = 1.1;
+          endThrow(false);
+          return;
+        }
+      }
+      if (b.y < 0.45) {
+        spawnParticles(b.x, 0.4, b.z, [0x9a8360, 0x6d5c40], 18, [5, 24], 8);
+        state.shake = 1.1;
+        endThrow(false);
+        return;
+      }
+      if (Math.abs(b.x) > CFG.boundsX || Math.abs(b.z) > CFG.boundsX) endThrow(false);
+      return;
+    }
 
     // cruce del plano del aro (interpolado entre frames: robusto ante dt grande)
     if (b.vy < 0 && b.py >= k.rimY && b.y < k.rimY) {
@@ -1844,6 +2200,7 @@
     gorillaArm.rotation.z = lerp(0.5, 2.55, state.armUp);
     playerArm.rotation.z = lerp(0.45, 2.6, state.armUp);
     policeArm.rotation.z = lerp(0.45, 2.6, state.armUp);
+    archerArm.rotation.z = lerp(0.45, 2.6, state.armUp);
     const k = state.basket;
     const arrowBaseY = scen().target === "hoop" ? k.rimY + 4.6 : k.rimY + 3.2;
     arrow.position.set(k.x, arrowBaseY + Math.sin(state.time * 3) * 0.7, k.z);
@@ -1889,7 +2246,7 @@
   ui.windBtn.addEventListener("click", () => {
     state.windEnabled = !state.windEnabled;
     ui.windBtn.textContent = state.windEnabled ? "💨 ON" : "💨 OFF";
-    setWind(state.windEnabled);   // al prenderlo a mano, sopla ya mismo
+    setWind();
   });
 
   window.addEventListener("keydown", (e) => {

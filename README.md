@@ -13,6 +13,7 @@ El botón del HUD (arriba a la izquierda) cambia entre tres escenarios:
 | 🏙️ **Ciudad** | Un policía practica puntería tirando piedras a un tacho de basura metálico entre los edificios. El tacho se mueve por nivel. |
 | 🌴 **Selva** | El gorila en su hábitat: árboles, palmeras, helechos en primer plano y luciérnagas. El canasto (sobre troncos) se mueve por nivel. |
 | 🏀 **Básquet** | Un jugador tira al aro (tablero, hierro y red) en un **estadio con tribunas llenas de público**. Acá el aro es fijo: lo que cambia por nivel es **tu posición en la cancha**, cada vez más lejos y con más ángulo. |
+| 🏹 **Arquero** | Un arquero con túnica y capucha medieval dispara flechas a un **blanco de aros sobre un montículo de paja**, en un bosque con prado, pinos, robles y casitas medievales. La flecha vuela orientada a su trayectoria y queda clavada en el blanco. Si pega en la paja fuera de los aros, es fallo. |
 
 ## Cómo jugar
 
@@ -26,7 +27,7 @@ El juego es una **PWA**: desde el navegador del celular usá *"Agregar a pantall
 - **Giro**: rota al gorila sobre su eje — el tiro es balística 3D real (x, y, z), así que además de la parábola tenés que apuntar bien en el plano horizontal, porque el canasto aparece a distintas profundidades.
 - **Lanzar**: botón `¡LANZAR!` o barra espaciadora.
 - **Cámara estilo Google Earth**: arrastrá para orbitar (verla desde arriba, de costado…), rueda del mouse o pinch para acercar, botón derecho o dos dedos para panear. El botón `📷 Vista` vuelve al encuadre inicial.
-- **Viento**: el botón `💨` del HUD lo prende y apaga. Cuando sopla, se ven **hojitas volando** en la dirección del viento (y su velocidad indica la fuerza). Prendido a mano sopla al instante; apagado, tiro limpio siempre.
+- **Viento**: el botón `💨` del HUD lo prende y apaga. Con el viento ON siempre sopla (cambia de fuerza y dirección por nivel) y se ven **hojitas volando** en su dirección; OFF garantiza tiro limpio.
 - **Sonidos**: cada proyectil silba distinto al salir (banana aguda, pelota grave, piedra pesada) y cada blanco suena distinto al embocar: *plop* en el mimbre, *¡clang!* metálico en el tacho, *swish* de red en el aro. Todo sintetizado con WebAudio, sin archivos.
 - Cada vez que embocás, pasás de nivel y el canasto aparece en otro lado (más lejos, más alto, más al fondo…).
 - Mientras no aciertes, seguís en el mismo nivel. La estela tenue del tiro anterior te ayuda a corregir.
