@@ -59,6 +59,16 @@
     white-space: nowrap;
   }
   .chip b { color: var(--accent); font-size: 15px; }
+  button.chip {
+    pointer-events: auto;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    touch-action: manipulation;
+  }
+  button.chip:active { transform: scale(.94); }
   #windArrow { display: inline-block; font-size: 14px; }
 
   /* ---------- banner de nivel ---------- */
@@ -120,7 +130,7 @@
     bottom: calc(10px + env(safe-area-inset-bottom));
     z-index: 5;
     display: grid;
-    grid-template-columns: 1fr 1fr auto;
+    grid-template-columns: 1fr 1fr 1fr auto;
     align-items: center;
     gap: 10px 18px;
     background: var(--panel-bg);
@@ -216,6 +226,7 @@
   </div>
   <div class="hudGroup">
     <div class="chip" id="windChip" style="display:none">💨 <span id="windArrow">→</span> <b id="windTxt">0</b></div>
+    <button class="chip" id="viewBtn">📷 Vista</button>
   </div>
 </div>
 
@@ -229,6 +240,11 @@
     <output id="angleOut">45°</output>
   </div>
   <div class="ctl">
+    <label for="yaw">Giro</label>
+    <input type="range" id="yaw" min="-45" max="45" value="0" step="1">
+    <output id="yawOut">0°</output>
+  </div>
+  <div class="ctl">
     <label for="power">Fuerza</label>
     <input type="range" id="power" min="20" max="100" value="60" step="1">
     <output id="powerOut">60</output>
@@ -237,6 +253,7 @@
 </div>
 
 <script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
 <script>
 (() => {
   "use strict";
@@ -262,17 +279,21 @@
   const state = {
     level: 1,
     tries: 0,
-    wind: 0,                     // aceleración horizontal u/s²
-    banana: null,                // {x, y, px, py, vx, vy}
+    wind: 0,                     // aceleración horizontal (eje x) u/s²
+    banana: null,                // {x, y, z, py, vx, vy, vz, yaw}
     celebrating: false,
     shake: 0,
     time: 0,
     armUp: 0,
-    basket: { x: 20, baseY: 0, rimY: CFG.basketH, pedestalH: 0 },
+    gorillaYaw: 0,               // giro actual del gorila (radianes, animado)
+    basket: { x: 20, z: 0, baseY: 0, rimY: CFG.basketH, pedestalH: 0 },
   };
 
   const ui = {
     angle: document.getElementById("angle"),
+    yaw: document.getElementById("yaw"),
+    yawOut: document.getElementById("yawOut"),
+    viewBtn: document.getElementById("viewBtn"),
     power: document.getElementById("power"),
     angleOut: document.getElementById("angleOut"),
     powerOut: document.getElementById("powerOut"),
@@ -325,31 +346,39 @@
   document.getElementById("app").appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x453a75, 120, 340);   // bruma violeta que empalma con el cielo
+  scene.fog = new THREE.Fog(0x453a75, 150, 560);   // bruma violeta que empalma con el cielo
 
-  const camera = new THREE.PerspectiveCamera(50, 1, 0.5, 900);
-  const camBase = new THREE.Vector3(1, 12, 60);
-  const camLook = new THREE.Vector3(1, 10.5, 0);
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.5, 1400);
 
-  function fitCamera() {
-    const w = window.innerWidth, h = window.innerHeight;
-    renderer.setSize(w, h);
-    camera.aspect = w / h;
+  // cámara orbital estilo Google Earth: arrastrar rota, rueda/pinch acerca,
+  // botón derecho / dos dedos panea
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 14;
+  controls.maxDistance = 450;
+  controls.maxPolarAngle = Math.PI / 2 + 0.04;   // no meterse bajo el piso
+
+  function resetView() {
+    const aspect = window.innerWidth / window.innerHeight;
     const vfov = THREE.MathUtils.degToRad(camera.fov);
-    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
     const dW = 50 / Math.tan(hfov / 2);        // que entren x ∈ [-49, 51]
     const dH = 17 / Math.tan(vfov / 2);        // y suficiente de cielo y piso
-    camBase.z = Math.max(dW, dH);
-    // en vertical la cámara queda lejos: subir la mirada para no mostrar tanto piso
-    camLook.y = camera.aspect < 0.9 ? 24 : 10.5;
-    camBase.y = camLook.y + 1.5;
-    camera.position.copy(camBase);
-    camera.updateProjectionMatrix();
-    scene.fog.near = camBase.z + 40;
-    scene.fog.far = camBase.z + 300;
+    const d = Math.max(dW, dH);
+    const lookY = aspect < 0.9 ? 24 : 10.5;    // en vertical, menos piso
+    controls.target.set(1, lookY, 0);
+    camera.position.set(1, lookY + 1.5, d);
+    controls.update();
   }
-  window.addEventListener("resize", fitCamera);
-  window.addEventListener("orientationchange", () => setTimeout(fitCamera, 250));
+
+  function onResize() {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", onResize);
+  window.addEventListener("orientationchange", () => setTimeout(() => { onResize(); resetView(); }, 250));
 
   // ------------------------------------------------ luces
   scene.add(new THREE.HemisphereLight(0x35426f, 0x0b0e16, 0.85));
@@ -382,23 +411,26 @@
     tex.encoding = THREE.sRGBEncoding;
     return tex;
   }
+  // cúpula de cielo: se ve el gradiente desde cualquier ángulo de la órbita
   const sky = new THREE.Mesh(
-    new THREE.PlaneGeometry(3000, 1400),
+    new THREE.SphereGeometry(680, 32, 24),
     new THREE.MeshBasicMaterial({
-      map: gradientTexture([[0, "#070a1c"], [0.42, "#1a2050"], [0.72, "#4a3a80"], [1, "#8a4a7d"]]),
-      fog: false, depthWrite: false,
+      map: gradientTexture([[0, "#070a1c"], [0.26, "#1a2050"], [0.44, "#4a3a80"], [0.52, "#8a4a7d"], [1, "#8a4a7d"]]),
+      fog: false, depthWrite: false, side: THREE.BackSide,
     })
   );
-  sky.position.set(0, 300, -500);
   scene.add(sky);
 
   const starGeo = new THREE.BufferGeometry();
   {
-    const n = 500, pos = new Float32Array(n * 3);
+    // estrellas repartidas por todo el domo, así se ven orbitando en cualquier dirección
+    const n = 700, pos = new Float32Array(n * 3), R = 620;
     for (let i = 0; i < n; i++) {
-      pos[i * 3] = rand(-600, 600);
-      pos[i * 3 + 1] = rand(30, 380);
-      pos[i * 3 + 2] = rand(-255, -180);
+      const az = rand(0, Math.PI * 2);
+      const elev = rand(0.06, 1.5);
+      pos[i * 3] = R * Math.cos(elev) * Math.cos(az);
+      pos[i * 3 + 1] = R * Math.sin(elev);
+      pos[i * 3 + 2] = R * Math.cos(elev) * Math.sin(az);
     }
     starGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
   }
@@ -599,6 +631,7 @@
     return g;
   }
   const bananaFly = makeBanana(1.35);
+  bananaFly.rotation.order = "YZX";   // primero el rumbo (y), después el giro propio (z)
   bananaFly.visible = false;
   scene.add(bananaFly);
   const bananaHand = makeBanana(0.7);
@@ -696,12 +729,12 @@
   const lastTrailLine = makeTrailLine(0xbfa970, 0.16);
   let trailCount = 0;
 
-  function pushTrail(x, y) {
+  function pushTrail(x, y, z) {
     if (trailCount >= TRAIL_N) return;
     const arr = trailLine.geometry.attributes.position.array;
     arr[trailCount * 3] = x;
     arr[trailCount * 3 + 1] = y;
-    arr[trailCount * 3 + 2] = 0.4;
+    arr[trailCount * 3 + 2] = z;
     trailCount++;
     trailLine.geometry.setDrawRange(0, trailCount);
     trailLine.geometry.attributes.position.needsUpdate = true;
@@ -735,17 +768,22 @@
   function updateAim() {
     const show = !state.banana && !state.celebrating;
     const angle = (+ui.angle.value) * Math.PI / 180;
+    const yaw = (+ui.yaw.value) * Math.PI / 180;
     const v0 = (+ui.power.value) * CFG.powerToV;
-    let x = CFG.gorillaX + CFG.handOffset.x, y = CFG.handOffset.y;
-    let vx = Math.cos(angle) * v0, vy = Math.sin(angle) * v0;
+    let x = CFG.gorillaX + CFG.handOffset.x * Math.cos(yaw);
+    let z = -CFG.handOffset.x * Math.sin(yaw);
+    let y = CFG.handOffset.y;
+    const h = Math.cos(angle) * v0;
+    let vx = h * Math.cos(yaw), vz = -h * Math.sin(yaw), vy = Math.sin(angle) * v0;
     const step = 0.07;
     for (let i = 0; i < AIM_N; i++) {
       vx += state.wind * step;
       vy -= CFG.gravity * step;
       x += vx * step;
       y += vy * step;
+      z += vz * step;
       aimDots[i].visible = show;
-      aimDots[i].position.set(x, y, 0.4);
+      aimDots[i].position.set(x, y, z);
     }
   }
 
@@ -768,7 +806,7 @@
   pointsMesh.frustumCulled = false;
   scene.add(pointsMesh);
 
-  function spawnParticles(x, y, colorList, n, speed = [8, 60], up = 0) {
+  function spawnParticles(x, y, z, colorList, n, speed = [8, 60], up = 0) {
     for (let k = 0; k < n; k++) {
       const i = particles.findIndex(p => !p.active);
       if (i < 0) return;
@@ -781,11 +819,11 @@
       p.life = rand(0.5, 1.4);
       p.vx = Math.cos(a) * sp;
       p.vy = Math.abs(Math.sin(a)) * sp * 0.8 + up;
-      p.vz = rand(-6, 6);
+      p.vz = rand(-sp * 0.5, sp * 0.5);
       p.r = col.r; p.g = col.g; p.b = col.b;
       pPos[i * 3] = x + rand(-0.5, 0.5);
       pPos[i * 3 + 1] = y + rand(-0.5, 0.5);
-      pPos[i * 3 + 2] = rand(-0.5, 0.5);
+      pPos[i * 3 + 2] = z + rand(-0.5, 0.5);
     }
   }
   function updateParticles(dt) {
@@ -821,17 +859,20 @@
   function placeBasket() {
     const k = state.basket;
     k.x = rand(CFG.basketMinX, CFG.basketMaxX);
+    // profundidad: nivel 1 casi de frente, después cada vez más desplazado en z
+    const zAmp = Math.min(26, 2 + state.level * 4);
+    k.z = rand(-zAmp, Math.min(zAmp, 15));
     const maxPed = Math.min(16, 3 + state.level * 2.5);
     k.pedestalH = state.level === 1 ? 0 : (Math.random() < 0.35 ? 0 : rand(4, maxPed));
     k.baseY = k.pedestalH;
     k.rimY = k.baseY + CFG.basketH;
-    basketGroup.position.set(k.x, k.baseY, 0);
+    basketGroup.position.set(k.x, k.baseY, k.z);
     const hasPed = k.pedestalH > 0;
     pedestal.visible = pedestalCap.visible = hasPed;
     if (hasPed) {
       pedestal.scale.y = k.pedestalH;
-      pedestal.position.set(k.x, k.pedestalH / 2, 0);
-      pedestalCap.position.set(k.x, k.pedestalH - 0.25, 0);
+      pedestal.position.set(k.x, k.pedestalH / 2, k.z);
+      pedestalCap.position.set(k.x, k.pedestalH - 0.25, k.z);
     }
   }
 
@@ -873,9 +914,20 @@
   function throwBanana() {
     if (state.banana || state.celebrating) return;
     const angle = (+ui.angle.value) * Math.PI / 180;
+    const yaw = (+ui.yaw.value) * Math.PI / 180;        // giro: 0 = derecho, + hacia el fondo
     const v0 = (+ui.power.value) * CFG.powerToV;
-    const x = CFG.gorillaX + CFG.handOffset.x, y = CFG.handOffset.y;
-    state.banana = { x, y, px: x, py: y, vx: Math.cos(angle) * v0, vy: Math.sin(angle) * v0 };
+    // la mano acompaña el giro del cuerpo
+    const x = CFG.gorillaX + CFG.handOffset.x * Math.cos(yaw);
+    const z = -CFG.handOffset.x * Math.sin(yaw);
+    const y = CFG.handOffset.y;
+    const h = Math.cos(angle) * v0;
+    state.banana = {
+      x, y, z, py: y,
+      vx: h * Math.cos(yaw),
+      vz: -h * Math.sin(yaw),
+      vy: Math.sin(angle) * v0,
+      yaw,
+    };
     state.tries++;
     ui.triesTxt.textContent = state.tries;
     ui.throwBtn.disabled = true;
@@ -893,7 +945,7 @@
       state.celebrating = true;
       sndScore();
       const k = state.basket;
-      spawnParticles(k.x, k.rimY + 1, [0xffd54a, 0xff9d2e, 0x7cf29c, 0x7cc4ff, 0xff7ce0, 0xffffff], 130, [15, 55], 20);
+      spawnParticles(k.x, k.rimY + 1, k.z, [0xffd54a, 0xff9d2e, 0x7cf29c, 0x7cc4ff, 0xff7ce0, 0xffffff], 130, [15, 55], 20);
       showBanner("🎯 ¡EMBOCASTE!", `Nivel ${state.level} superado`, 1600);
       setTimeout(() => { state.level++; newLevel(); }, 1900);
     } else {
@@ -906,49 +958,50 @@
   function updateBanana(dt) {
     const b = state.banana;
     if (!b) return;
-    b.px = b.x; b.py = b.y;
+    b.py = b.y;
     b.vx += state.wind * dt;
     b.vy -= CFG.gravity * dt;
     b.x += b.vx * dt;
     b.y += b.vy * dt;
-    pushTrail(b.x, b.y);
+    b.z += b.vz * dt;
+    pushTrail(b.x, b.y, b.z);
 
-    bananaFly.position.set(b.x, b.y, 0);
+    bananaFly.position.set(b.x, b.y, b.z);
+    bananaFly.rotation.y = Math.atan2(-b.vz, b.vx);   // el plano de giro sigue la dirección de vuelo
     bananaFly.rotation.z -= dt * 9;
-    bananaFly.rotation.y = Math.sin(state.time * 4) * 0.3;
 
     const k = state.basket;
-    const dx = Math.abs(b.x - k.x);
+    const dh = Math.hypot(b.x - k.x, b.z - k.z);      // distancia horizontal al eje del canasto
 
     // ¿entró por la boca? (cayendo y cruzando el plano del aro dentro del radio)
-    if (b.vy < 0 && dx < CFG.rimR * 0.78 && b.py >= k.rimY && b.y < k.rimY + 0.3) {
-      spawnParticles(k.x, k.rimY, [0xffd54a, 0xfff2c0], 30, [6, 25], 10);
+    if (b.vy < 0 && dh < CFG.rimR * 0.78 && b.py >= k.rimY && b.y < k.rimY + 0.3) {
+      spawnParticles(k.x, k.rimY, k.z, [0xffd54a, 0xfff2c0], 30, [6, 25], 10);
       endThrow(true);
       return;
     }
     // golpe al cuerpo del canasto
-    if (b.y < k.rimY && b.y > k.baseY - 0.3 && dx < CFG.rimR * 1.15) {
-      spawnParticles(b.x, b.y, [0xc9d4ff, 0x8892b8], 16, [5, 22], 6);
+    if (b.y < k.rimY && b.y > k.baseY - 0.3 && dh < CFG.rimR * 1.15) {
+      spawnParticles(b.x, b.y, b.z, [0xc9d4ff, 0x8892b8], 16, [5, 22], 6);
       state.shake = 1.4;
       endThrow(false);
       return;
     }
     // golpe al pedestal
-    if (k.pedestalH > 0 && b.y < k.baseY && b.y > 0 && dx < 2.7) {
-      spawnParticles(b.x, b.y, [0xb0a0c8, 0x8892b8], 14, [5, 20], 5);
+    if (k.pedestalH > 0 && b.y < k.baseY && b.y > 0 && dh < 2.7) {
+      spawnParticles(b.x, b.y, b.z, [0xb0a0c8, 0x8892b8], 14, [5, 20], 5);
       state.shake = 1.2;
       endThrow(false);
       return;
     }
     // piso
     if (b.y < 0.45) {
-      spawnParticles(b.x, 0.4, [0x9a8360, 0x6d5c40], 18, [5, 24], 8);
+      spawnParticles(b.x, 0.4, b.z, [0x9a8360, 0x6d5c40], 18, [5, 24], 8);
       state.shake = 1.1;
       endThrow(false);
       return;
     }
     // fuera de límites
-    if (b.x > CFG.boundsX || b.x < -CFG.boundsX) endThrow(false);
+    if (Math.abs(b.x) > CFG.boundsX || Math.abs(b.z) > CFG.boundsX) endThrow(false);
   }
 
   // ==================================================================
@@ -972,14 +1025,18 @@
     gorilla.position.y = state.celebrating ? Math.abs(Math.sin(state.time * 9)) * 1.3 : 0;
     starMat.opacity = 0.7 + 0.25 * Math.sin(state.time * 1.7);
 
-    // cámara: leve seguimiento de la banana + shake
-    if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 4);
-    const followX = state.banana ? (state.banana.x - camLook.x) * 0.12 : 0;
-    const followY = state.banana ? Math.max(0, state.banana.y - 26) * 0.15 : 0;
-    camera.position.x = camBase.x + followX + rand(-state.shake, state.shake);
-    camera.position.y = camBase.y + followY + rand(-state.shake, state.shake);
-    camera.position.z = camBase.z;
-    camera.lookAt(camLook.x + followX, camLook.y + followY, 0);
+    // el gorila rota suavemente hacia el giro elegido
+    const targetYaw = (+ui.yaw.value) * Math.PI / 180;
+    state.gorillaYaw += (targetYaw - state.gorillaYaw) * Math.min(1, dt * 10);
+    gorilla.rotation.y = state.gorillaYaw;
+
+    // cámara orbital + shake al fallar
+    controls.update();
+    if (state.shake > 0) {
+      state.shake = Math.max(0, state.shake - dt * 4);
+      camera.position.x += rand(-state.shake, state.shake) * 0.3;
+      camera.position.y += rand(-state.shake, state.shake) * 0.3;
+    }
 
     renderer.render(scene, camera);
   }
@@ -993,8 +1050,10 @@
     out.textContent = input.value + suffix;
   }
   ui.angle.addEventListener("input", () => syncSlider(ui.angle, ui.angleOut, "°"));
+  ui.yaw.addEventListener("input", () => syncSlider(ui.yaw, ui.yawOut, "°"));
   ui.power.addEventListener("input", () => syncSlider(ui.power, ui.powerOut, ""));
   ui.throwBtn.addEventListener("click", throwBanana);
+  ui.viewBtn.addEventListener("click", resetView);
 
   window.addEventListener("keydown", (e) => {
     const bump = (input, delta, out, suffix) => {
@@ -1006,6 +1065,8 @@
       case "ArrowDown":  bump(ui.angle, -1, ui.angleOut, "°"); e.preventDefault(); break;
       case "ArrowRight": bump(ui.power,  1, ui.powerOut, "");  e.preventDefault(); break;
       case "ArrowLeft":  bump(ui.power, -1, ui.powerOut, "");  e.preventDefault(); break;
+      case "q": case "Q": bump(ui.yaw,  1, ui.yawOut, "°"); e.preventDefault(); break;
+      case "e": case "E": bump(ui.yaw, -1, ui.yawOut, "°"); e.preventDefault(); break;
       case " ":          throwBanana(); e.preventDefault(); break;
     }
   });
@@ -1024,10 +1085,12 @@
   // ==================================================================
   // Arranque
   // ==================================================================
-  window.__game = { state, CFG };   // útil para depurar / testear
-  fitCamera();
+  window.__game = { state, CFG, camera, controls };   // útil para depurar / testear
+  onResize();
+  resetView();
   newLevel(true);
   syncSlider(ui.angle, ui.angleOut, "°");
+  syncSlider(ui.yaw, ui.yawOut, "°");
   syncSlider(ui.power, ui.powerOut, "");
   showBanner("🦍 GORILLA BANANA 3D", "Elegí ángulo y fuerza… ¡y embocá la banana! 🍌", 2600);
   checkOrientation();
