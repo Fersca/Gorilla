@@ -233,7 +233,8 @@
     <button class="chip" id="scenBtn">🏙️ Ciudad</button>
   </div>
   <div class="hudGroup">
-    <div class="chip" id="windChip" style="display:none">💨 <span id="windArrow">→</span> <b id="windTxt">0</b></div>
+    <button class="chip" id="windBtn">💨 ON</button>
+    <div class="chip" id="windChip" style="display:none"><span id="windArrow">→</span> <b id="windTxt">0</b></div>
     <button class="chip" id="viewBtn">📷 Vista</button>
   </div>
 </div>
@@ -333,6 +334,7 @@
     level: 1,
     tries: 0,
     wind: 0,                     // aceleración horizontal (eje x) u/s²
+    windEnabled: true,           // botón 💨 del HUD
     banana: null,                // proyectil en vuelo {x,y,z,py,vx,vy,vz}
     celebrating: false,
     shake: 0,
@@ -354,6 +356,7 @@
     throwBtn: document.getElementById("throwBtn"),
     viewBtn: document.getElementById("viewBtn"),
     scenBtn: document.getElementById("scenBtn"),
+    windBtn: document.getElementById("windBtn"),
     levelTxt: document.getElementById("levelTxt"),
     triesTxt: document.getElementById("triesTxt"),
     windChip: document.getElementById("windChip"),
@@ -368,26 +371,103 @@
   // ==================================================================
   // Sonido y vibración
   // ==================================================================
-  let audioCtx = null;
+  let audioCtx = null, noiseBuf = null;
+  function ctxA() {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
   function beep(freq, dur, type = "sine", vol = 0.15, when = 0) {
     try {
-      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === "suspended") audioCtx.resume();
-      const t = audioCtx.currentTime + when;
-      const o = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
+      const ac = ctxA();
+      const t = ac.currentTime + when;
+      const o = ac.createOscillator();
+      const g = ac.createGain();
       o.type = type;
       o.frequency.setValueAtTime(freq, t);
       g.gain.setValueAtTime(vol, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      o.connect(g).connect(audioCtx.destination);
+      o.connect(g).connect(ac.destination);
       o.start(t); o.stop(t + dur);
     } catch (e) { /* sin audio */ }
   }
+  // "plop": tono que cae de frecuencia (gota / objeto que entra)
+  function plop(f1, f2, dur, vol = 0.25, when = 0) {
+    try {
+      const ac = ctxA();
+      const t = ac.currentTime + when;
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(f1, t);
+      o.frequency.exponentialRampToValueAtTime(Math.max(30, f2), t + dur);
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g).connect(ac.destination);
+      o.start(t); o.stop(t + dur);
+    } catch (e) {}
+  }
+  // ráfaga de ruido filtrado (silbidos de lanzamiento, swish de red)
+  function whoosh(dur, f1, f2, vol, when = 0, type = "bandpass", q = 1.1) {
+    try {
+      const ac = ctxA();
+      if (!noiseBuf) {
+        noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      const t = ac.currentTime + when;
+      const src = ac.createBufferSource();
+      src.buffer = noiseBuf;
+      src.loop = true;
+      const fl = ac.createBiquadFilter();
+      fl.type = type;
+      fl.Q.value = q;
+      fl.frequency.setValueAtTime(f1, t);
+      fl.frequency.exponentialRampToValueAtTime(Math.max(40, f2), t + dur);
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.18);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(fl).connect(g).connect(ac.destination);
+      src.start(t); src.stop(t + dur + 0.05);
+    } catch (e) {}
+  }
   const vibrate = (p) => { if (navigator.vibrate) try { navigator.vibrate(p); } catch (e) {} };
-  const sndThrow = () => { beep(220, .12, "triangle", .1); beep(440, .1, "triangle", .06, .04); vibrate(25); };
-  const sndMiss  = () => { beep(110, .25, "sawtooth", .12); vibrate(60); };
-  const sndScore = () => { [523, 659, 784, 1047].forEach((f, i) => beep(f, .18, "triangle", .14, i * .09)); vibrate([40, 60, 40, 60, 90]); };
+
+  // silbido de lanzamiento con carácter propio por proyectil
+  function sndThrow(kind) {
+    if (kind === "ball") {
+      whoosh(0.35, 180, 750, 0.32);            // grave, pelota pesada
+      beep(140, 0.08, "sine", 0.1);
+    } else if (kind === "rock") {
+      whoosh(0.4, 90, 380, 0.36, 0, "lowpass"); // piedra: aire grave
+      plop(90, 55, 0.12, 0.18);
+    } else {
+      whoosh(0.28, 500, 1700, 0.24);           // banana: silbido agudo
+      beep(520, 0.07, "triangle", 0.05, 0.03);
+    }
+    vibrate(25);
+  }
+  const sndMiss = () => { beep(110, .25, "sawtooth", .12); whoosh(0.2, 300, 120, 0.2, 0, "lowpass"); vibrate(60); };
+  // sonido de embocar, distinto según dónde cae
+  function sndScore(targetMesh) {
+    if (targetMesh === "trash") {
+      // ¡clang! metálico del tacho
+      [612, 1010, 1568].forEach((f, i) => beep(f * rand(0.99, 1.01), 0.45 - i * 0.09, "square", 0.06, 0.02));
+      plop(150, 55, 0.14, 0.3);
+    } else if (targetMesh === "hoop") {
+      // swish de la red + pique
+      whoosh(0.3, 2400, 700, 0.3, 0, "bandpass", 2.2);
+      plop(220, 95, 0.14, 0.12, 0.1);
+    } else {
+      // plop en el mimbre
+      plop(330, 85, 0.2, 0.32);
+      whoosh(0.16, 260, 110, 0.2, 0.05, "lowpass");
+    }
+    [523, 659, 784, 1047].forEach((f, i) => beep(f, .18, "triangle", .13, 0.22 + i * .09));
+    vibrate([40, 60, 40, 60, 90]);
+  }
 
   // ==================================================================
   // Escena three.js
@@ -1290,6 +1370,36 @@
   hoopGroup.position.set(HOOP.x, 0, HOOP.z);
   scene.add(hoopGroup);
 
+  // ---------- hojitas que visualizan el viento ----------
+  const LEAF_N = 42;
+  const leafGeo = new THREE.PlaneGeometry(0.9, 0.42);
+  const leafMats = [0x9adf6a, 0xd7e86a, 0x6fc76a].map(c =>
+    new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+  );
+  const leafGroup = new THREE.Group();
+  leafGroup.visible = false;
+  const leaves = [];
+  for (let i = 0; i < LEAF_N; i++) {
+    const m = new THREE.Mesh(leafGeo, leafMats[i % leafMats.length]);
+    m.position.set(rand(-78, 78), rand(1.5, 26), rand(-32, 24));
+    leaves.push({ m, ph: rand(0, Math.PI * 2), spin: rand(1.5, 4), fac: rand(0.7, 1.5), baseY: m.position.y });
+    leafGroup.add(m);
+  }
+  scene.add(leafGroup);
+  function updateLeaves(dt) {
+    const show = state.wind !== 0;
+    leafGroup.visible = show;
+    if (!show) return;
+    for (const l of leaves) {
+      l.m.position.x += state.wind * 2.4 * l.fac * dt;
+      l.m.position.y = l.baseY + Math.sin(state.time * 1.7 + l.ph) * 1.2;
+      l.m.rotation.x += dt * l.spin;
+      l.m.rotation.y += dt * l.spin * 0.7;
+      if (l.m.position.x > 80) l.m.position.x = -80;
+      if (l.m.position.x < -80) l.m.position.x = 80;
+    }
+  }
+
   // flecha indicadora sobre el blanco
   const arrow = new THREE.Mesh(
     new THREE.ConeGeometry(1.1, 2.1, 4),
@@ -1495,10 +1605,18 @@
     activeThrower().position.set(state.thrower.x, 0, state.thrower.z);
   }
 
-  function setWind() {
-    if (state.level < 3) { state.wind = 0; ui.windChip.style.display = "none"; return; }
-    const max = Math.min(6, 1 + state.level * 0.7);
+  function setWind(force = false) {
+    if (!state.windEnabled || (state.level < 3 && !force)) {
+      state.wind = 0;
+      ui.windChip.style.display = "none";
+      return;
+    }
+    const max = Math.min(6, 1 + Math.max(state.level, 2) * 0.7);
     state.wind = rand(-max, max);
+    if (force && Math.abs(state.wind) < 1.2) {
+      // si el jugador lo prendió a mano, que se note
+      state.wind = (state.wind >= 0 ? 1 : -1) * rand(1.5, max);
+    }
     if (Math.abs(state.wind) < 0.8) state.wind = 0;
     ui.windChip.style.display = state.wind === 0 ? "none" : "flex";
     ui.windTxt.textContent = Math.round(Math.abs(state.wind) * 10);
@@ -1591,7 +1709,7 @@
     state.armUp = 1;
     handItem().visible = false;
     flyItem().visible = true;
-    sndThrow();
+    sndThrow(scen().projectile);
   }
 
   function endThrow(hit) {
@@ -1600,7 +1718,7 @@
     bananaFly.visible = ballFly.visible = rockFly.visible = false;
     if (hit) {
       state.celebrating = true;
-      sndScore();
+      sndScore(scen().targetMesh);
       const k = state.basket;
       spawnParticles(k.x, k.rimY + 1, k.z, [0xffd54a, 0xff9d2e, 0x7cf29c, 0x7cc4ff, 0xff7ce0, 0xffffff], 130, [15, 55], 20);
       showBanner(scen().target === "hoop" ? "🏀 ¡ENCESTASTE!" : "🎯 ¡EMBOCASTE!", `Nivel ${state.level} superado`, 1600);
@@ -1718,6 +1836,7 @@
 
     updateBanana(dt);
     updateParticles(dt);
+    updateLeaves(dt);
     updateAim();
 
     // animaciones
@@ -1767,6 +1886,11 @@
   ui.throwBtn.addEventListener("click", throwBanana);
   ui.viewBtn.addEventListener("click", resetView);
   ui.scenBtn.addEventListener("click", switchScenario);
+  ui.windBtn.addEventListener("click", () => {
+    state.windEnabled = !state.windEnabled;
+    ui.windBtn.textContent = state.windEnabled ? "💨 ON" : "💨 OFF";
+    setWind(state.windEnabled);   // al prenderlo a mano, sopla ya mismo
+  });
 
   window.addEventListener("keydown", (e) => {
     const bump = (input, delta, out, suffix) => {

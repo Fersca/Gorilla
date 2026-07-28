@@ -26,6 +26,8 @@ El juego es una **PWA**: desde el navegador del celular usá *"Agregar a pantall
 - **Giro**: rota al gorila sobre su eje — el tiro es balística 3D real (x, y, z), así que además de la parábola tenés que apuntar bien en el plano horizontal, porque el canasto aparece a distintas profundidades.
 - **Lanzar**: botón `¡LANZAR!` o barra espaciadora.
 - **Cámara estilo Google Earth**: arrastrá para orbitar (verla desde arriba, de costado…), rueda del mouse o pinch para acercar, botón derecho o dos dedos para panear. El botón `📷 Vista` vuelve al encuadre inicial.
+- **Viento**: el botón `💨` del HUD lo prende y apaga. Cuando sopla, se ven **hojitas volando** en la dirección del viento (y su velocidad indica la fuerza). Prendido a mano sopla al instante; apagado, tiro limpio siempre.
+- **Sonidos**: cada proyectil silba distinto al salir (banana aguda, pelota grave, piedra pesada) y cada blanco suena distinto al embocar: *plop* en el mimbre, *¡clang!* metálico en el tacho, *swish* de red en el aro. Todo sintetizado con WebAudio, sin archivos.
 - Cada vez que embocás, pasás de nivel y el canasto aparece en otro lado (más lejos, más alto, más al fondo…).
 - Mientras no aciertes, seguís en el mismo nivel. La estela tenue del tiro anterior te ayuda a corregir.
 
