@@ -1872,13 +1872,17 @@
     const k = state.basket;
     k.rimR = sc.rimR;
 
+    // el lanzador retrocede a medida que sube el nivel
+    const back = Math.min(12, (state.level - 1) * 2);
+
     if (sc.target === "basket") {
-      // el blanco se mueve, el lanzador queda fijo
-      state.thrower.x = -38;
+      // el blanco se mueve, el lanzador se aleja
+      state.thrower.x = -34 - back;
       state.thrower.z = 0;
+      k.rot = 0;
       k.x = rand(4, 44);
-      const zAmp = Math.min(26, 2 + state.level * 4);
-      k.z = rand(-zAmp, Math.min(zAmp, 15));
+      const zAmp = Math.min(28, 2 + state.level * 4.5);
+      k.z = rand(-zAmp, Math.min(zAmp, 16));
       const maxPed = Math.min(16, 3 + state.level * 2.5);
       k.pedestalH = state.level === 1 ? 0 : (Math.random() < 0.35 ? 0 : rand(4, maxPed));
       k.baseY = k.pedestalH;
@@ -1893,27 +1897,32 @@
         pedestalCap.position.set(k.x, k.pedestalH - 0.25, k.z);
       }
     } else if (sc.target === "bullseye") {
-      // el montículo con el blanco se mueve, el arquero queda fijo
-      state.thrower.x = -38;
+      // el montículo con el blanco se mueve, el arquero se aleja
+      state.thrower.x = -34 - back;
       state.thrower.z = 0;
       k.x = rand(4, 44);
-      const zAmp = Math.min(24, 2 + state.level * 4);
-      k.z = rand(-zAmp, Math.min(zAmp, 15));
+      const zAmp = Math.min(26, 2 + state.level * 4.5);
+      k.z = rand(-zAmp, Math.min(zAmp, 16));
       k.pedestalH = 0;
       k.baseY = 0;
       k.cy = BULL.cy;
       k.rimY = BULL.moundH;          // para la flecha indicadora
+      // el blanco aparece cada vez más girado: la zona útil se achica
+      k.rot = state.level === 1 ? 0
+            : (Math.random() < 0.5 ? -1 : 1) * rand(0.12, Math.min(0.7, 0.08 + state.level * 0.09));
       pedestal.visible = pedestalCap.visible = false;
       bullseyeGroup.position.set(k.x, 0, k.z);
+      bullseyeGroup.rotation.y = k.rot;
     } else {
       // básquet: el aro es fijo, se mueve el jugador por la cancha
       k.x = HOOP.x; k.z = HOOP.z;
+      k.rot = 0;
       k.rimY = HOOP.rimY;
       k.baseY = HOOP.rimY;      // el aro no tiene "cuerpo" abajo
       k.pedestalH = 0;
       pedestal.visible = pedestalCap.visible = false;
-      const dist = Math.min(72, 18 + state.level * 6);
-      const zAmp = Math.min(24, 3 + state.level * 4);
+      const dist = Math.min(78, 16 + state.level * 7);
+      const zAmp = Math.min(26, 3 + state.level * 4.5);
       state.thrower.z = rand(-zAmp, zAmp);
       state.thrower.x = Math.max(-42, HOOP.x - rand(dist * 0.7, dist));
     }
@@ -1927,8 +1936,10 @@
       ui.windChip.style.display = "none";
       return;
     }
-    const max = Math.min(6, 1 + Math.max(state.level, 2) * 0.7);
-    state.wind = (Math.random() < 0.5 ? -1 : 1) * rand(1.2, max);
+    // el viento crece con el nivel: más fuerte y con piso más alto
+    const max = Math.min(8, 1 + state.level * 0.9);
+    const minMag = Math.min(0.8 + state.level * 0.3, max * 0.7);
+    state.wind = (Math.random() < 0.5 ? -1 : 1) * rand(minMag, max);
     ui.windChip.style.display = "flex";
     ui.windTxt.textContent = Math.round(Math.abs(state.wind) * 10);
     ui.windArrow.textContent = state.wind > 0 ? "→" : "←";
@@ -2083,25 +2094,33 @@
     const k = state.basket;
     const dh = Math.hypot(b.x - k.x, b.z - k.z);
 
-    // blanco de arquería: plano vertical en x = k.x (mira hacia el arquero)
+    // blanco de arquería: plano vertical que puede estar girado (k.rot)
     if (sc.target === "bullseye") {
-      if (b.px <= k.x && b.x > k.x) {
-        const f = (k.x - b.px) / (b.x - b.px);
+      const c = Math.cos(k.rot || 0), s = Math.sin(k.rot || 0);
+      // coordenadas locales del blanco (x' = normal del disco, hacia el arquero es x'<0)
+      const lx = c * (b.x - k.x) - s * (b.z - k.z);
+      const lpx = c * (b.px - k.x) - s * (b.pz - k.z);
+      if (lpx <= 0 && lx > 0) {
+        const lz = s * (b.x - k.x) + c * (b.z - k.z);
+        const lpz = s * (b.px - k.x) + c * (b.pz - k.z);
+        const f = -lpx / (lx - lpx);
         const cy = b.py + (b.y - b.py) * f;
-        const cz = b.pz + (b.z - b.pz) * f;
-        const dr = Math.hypot(cy - k.cy, cz - k.z);
+        const clz = lpz + (lz - lpz) * f;
+        const dr = Math.hypot(cy - k.cy, clz);
+        // punto de cruce en coordenadas de mundo
+        const wx = k.x + s * clz, wz = k.z + c * clz;
         if (dr < k.rimR) {
-          spawnParticles(k.x, cy, cz, [0xffd54a, 0xfff2c0], 26, [5, 20], 8);
+          spawnParticles(wx, cy, wz, [0xffd54a, 0xfff2c0], 26, [5, 20], 8);
           endThrow(true);
           // la flecha queda clavada en el blanco durante el festejo
           arrowFly.visible = true;
-          arrowFly.position.set(k.x - 3.4, cy, cz);
-          arrowFly.rotation.set(0, 0, 0);
+          arrowFly.position.set(k.x - 3.4 * c + s * clz, cy, k.z + 3.4 * s + c * clz);
+          arrowFly.rotation.set(0, k.rot || 0, 0);
           return;
         }
-        const inMound = cy >= 0 && Math.pow(cy / BULL.moundH, 2) + Math.pow((cz - k.z) / BULL.moundR, 2) < 1;
+        const inMound = cy >= 0 && Math.pow(cy / BULL.moundH, 2) + Math.pow(clz / BULL.moundR, 2) < 1;
         if (inMound) {
-          spawnParticles(k.x, cy, cz, [0xd8b84a, 0xb89a3a], 18, [5, 22], 6);
+          spawnParticles(wx, cy, wz, [0xd8b84a, 0xb89a3a], 18, [5, 22], 6);
           state.shake = 1.1;
           endThrow(false);
           return;
@@ -2278,7 +2297,7 @@
   // ==================================================================
   // Arranque
   // ==================================================================
-  window.__game = { state, CFG, SCENARIOS, HOOP, camera, controls, switchScenario };
+  window.__game = { state, CFG, SCENARIOS, HOOP, camera, controls, switchScenario, newLevel };
   onResize();
   resetView();
   applyScenario();

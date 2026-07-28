@@ -34,11 +34,12 @@ El juego es una **PWA**: desde el navegador del celular usá *"Agregar a pantall
 
 ## Dificultad progresiva
 
-| Nivel | Novedad |
-|-------|---------|
-| 1     | Canasto a nivel del piso |
-| 2+    | El canasto puede aparecer elevado sobre un pedestal |
-| 3+    | Aparece **viento** (mirá el indicador 💨 arriba a la derecha) |
+Con cada nivel, en todos los escenarios:
+
+- **El lanzador retrocede**: arranca cerca y termina contra el borde del escenario.
+- **El viento sopla más fuerte** (si está ON): sube el máximo y también el mínimo.
+- **El blanco queda más desviado**: aparece cada vez más corrido a los costados (más Giro necesario), puede subirse a pedestales más altos (ciudad/selva), y el blanco de arquería aparece **girado sobre su eje** — la zona útil se achica con el ángulo.
+- En básquet, tu posición en la cancha se aleja y se corre cada vez más del eje del aro.
 
 ## Detalles técnicos
 
