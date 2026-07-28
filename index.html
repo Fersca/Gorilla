@@ -229,7 +229,7 @@
 <div id="hud">
   <div class="hudGroup">
     <div class="chip">🏆 Nivel <b id="levelTxt">1</b></div>
-    <div class="chip">🍌 Intentos <b id="triesTxt">0</b></div>
+    <div class="chip">🎯 Intentos <b id="triesTxt">0</b></div>
     <button class="chip" id="scenBtn">🏙️ Ciudad</button>
   </div>
   <div class="hudGroup">
@@ -288,27 +288,29 @@
       fog: 0x453a75,
       skyStops: [[0, "#070a1c"], [0.26, "#1a2050"], [0.44, "#4a3a80"], [0.52, "#8a4a7d"], [1, "#8a4a7d"]],
       groundColor: 0x131b0e,
-      thrower: "gorilla", projectile: "banana", target: "basket",
-      handOffset: { x: 4.3, y: 10.6 },
-      rimR: 3.1,
+      thrower: "police", projectile: "rock", target: "basket", targetMesh: "trash",
+      handOffset: { x: 3.7, y: 12.1 },
+      rimR: 2.7,
+      cupH: 5.5,
       pedestalColors: [0x554668, 0x6f5c86],
       randomEnv: true,
-      throwLabel: "🍌 ¡LANZAR!",
-      sub: "Elegí ángulo, giro y fuerza… ¡y embocá la banana! 🍌",
-      moveMsg: "El canasto se movió… encontralo de nuevo 🧺",
+      throwLabel: "🪨 ¡LANZAR!",
+      sub: "El policía practica puntería… ¡embocá la piedra en el tacho! 🗑️",
+      moveMsg: "El tacho se movió… encontralo de nuevo 🗑️",
     },
     selva: {
       name: "Selva", emoji: "🌴", next: "basquet",
       fog: 0x35564a,
       skyStops: [[0, "#04120c"], [0.26, "#0a2a1e"], [0.44, "#1e5442"], [0.52, "#4a7a62"], [1, "#4a7a62"]],
       groundColor: 0x0e2410,
-      thrower: "gorilla", projectile: "banana", target: "basket",
+      thrower: "gorilla", projectile: "banana", target: "basket", targetMesh: "wicker",
       handOffset: { x: 4.3, y: 10.6 },
       rimR: 3.1,
+      cupH: 4.4,
       pedestalColors: [0x5a4028, 0x74553a],   // tronco
       randomEnv: true,
       throwLabel: "🍌 ¡LANZAR!",
-      sub: "El gorila volvió a casa… ¡embocá entre los árboles! 🌴",
+      sub: "El gorila en su casa… ¡embocá la banana entre los árboles! 🌴",
       moveMsg: "El canasto se movió… buscalo entre la selva 🌴",
     },
     basquet: {
@@ -316,12 +318,12 @@
       fog: 0x453a75,
       skyStops: [[0, "#070a1c"], [0.26, "#1a2050"], [0.44, "#4a3a80"], [0.52, "#8a4a7d"], [1, "#8a4a7d"]],
       groundColor: 0x191b1f,
-      thrower: "player", projectile: "ball", target: "hoop",
+      thrower: "player", projectile: "ball", target: "hoop", targetMesh: "hoop",
       handOffset: { x: 3.7, y: 12.1 },
       rimR: 2.6,
       randomEnv: false,
       throwLabel: "🏀 ¡TIRAR!",
-      sub: "Cancha callejera: el aro no se mueve… vos sí 🏀",
+      sub: "Estadio lleno: el aro no se mueve… vos sí 🏀",
       moveMsg: "Cambiaste de posición en la cancha… ¡encestá! 🏀",
     },
   };
@@ -675,6 +677,44 @@
       bush.scale.y = 0.7;
       group.add(bush);
     }
+    // vegetación de primer plano: helechos y plantas de hojas grandes
+    // delante del gorila y a lo largo del borde inferior de la vista
+    const lightGreens = [0x3f8a3f, 0x2f7a4a, 0x4a9a55].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, side: THREE.DoubleSide }));
+    for (let i = 0; i < 30; i++) {
+      const x = rand(-70, 70), z = rand(9, 22);
+      const plant = new THREE.Group();
+      const mat = lightGreens[(Math.random() * lightGreens.length) | 0];
+      if (Math.random() < 0.55) {
+        // helecho: frondas en abanico
+        const nF = 5 + (Math.random() * 3 | 0);
+        for (let f = 0; f < nF; f++) {
+          const leaf = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 4), mat);
+          leaf.scale.set(1.9, 0.14, 0.4);
+          const a = f / nF * Math.PI * 2 + rand(0, 0.5);
+          leaf.position.set(Math.cos(a) * 1.1, 0.8, Math.sin(a) * 1.1);
+          leaf.rotation.y = -a;
+          leaf.rotation.z = rand(0.35, 0.6);
+          plant.add(leaf);
+        }
+      } else {
+        // planta de hojas grandes y verticales
+        const nL = 3 + (Math.random() * 3 | 0);
+        for (let f = 0; f < nL; f++) {
+          const leaf = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), mat);
+          leaf.scale.set(0.55, 2.1, 0.14);
+          const a = rand(0, Math.PI * 2);
+          leaf.position.set(Math.cos(a) * 0.5, 1.7, Math.sin(a) * 0.5);
+          leaf.rotation.y = -a;
+          leaf.rotation.z = rand(-0.35, 0.35);
+          plant.add(leaf);
+        }
+      }
+      plant.scale.setScalar(rand(0.6, 1.25));
+      plant.position.set(x, 0, z);
+      plant.rotation.y = rand(0, Math.PI * 2);
+      group.add(plant);
+    }
+
     // luciérnagas
     const n = 60, pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
@@ -723,8 +763,50 @@
     return tex;
   }
 
+  // tribunas de estadio en U alrededor de la cancha, con público de colores
+  function buildStands(group) {
+    const stepMat = new THREE.MeshStandardMaterial({ color: 0x2a3240, roughness: 0.9 });
+    const faceMat = new THREE.MeshStandardMaterial({ color: 0x39424f, roughness: 0.9 });
+    const ROWS = 9, STEP_H = 2.3, STEP_D = 4.2;
+    const crowdPos = [], crowdCol = [];
+    const palette = [0xe04b3a, 0xffd54a, 0x4a9de0, 0x7cf29c, 0xf2f2f2, 0xff7ce0, 0xff9d2e, 0x9a7cf2];
+
+    // cada lado: base (posición inicial), dirección de alejamiento y largo
+    const sides = [
+      { ox: 0,   oz: -40, dx: 0,  dz: -1, len: 170, along: "x" },   // fondo
+      { ox: -60, oz: 0,   dx: -1, dz: 0,  len: 96,  along: "z" },   // detrás del lanzador
+      { ox: 62,  oz: 0,   dx: 1,  dz: 0,  len: 96,  along: "z" },   // detrás del aro
+    ];
+    for (const s of sides) {
+      for (let i = 0; i < ROWS; i++) {
+        const step = new THREE.Mesh(boxGeo, i % 2 ? stepMat : faceMat);
+        const cx = s.ox + s.dx * (i * STEP_D + STEP_D / 2);
+        const cz = s.oz + s.dz * (i * STEP_D + STEP_D / 2);
+        const topY = STEP_H * (i + 1);
+        step.position.set(cx, 0, cz);
+        if (s.along === "x") step.scale.set(s.len, topY, STEP_D);
+        else step.scale.set(STEP_D, topY, s.len);
+        group.add(step);
+        // público sentado en cada fila (salteado, para que respire)
+        for (let d = -s.len / 2 + 2; d < s.len / 2 - 2; d += rand(2.2, 4.2)) {
+          if (Math.random() < 0.25) continue;
+          const hx = s.along === "x" ? cx + d + rand(-0.4, 0.4) : cx + rand(-1, 1);
+          const hz = s.along === "z" ? cz + d + rand(-0.4, 0.4) : cz + rand(-1, 1);
+          crowdPos.push(hx, topY + 0.7, hz);
+          const col = new THREE.Color(palette[(Math.random() * palette.length) | 0]);
+          crowdCol.push(col.r, col.g, col.b);
+        }
+      }
+    }
+    const cg = new THREE.BufferGeometry();
+    cg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(crowdPos), 3));
+    cg.setAttribute("color", new THREE.BufferAttribute(new Float32Array(crowdCol), 3));
+    const crowd = new THREE.Points(cg, new THREE.PointsMaterial({ size: 1.5, vertexColors: true, sizeAttenuation: true }));
+    group.add(crowd);
+  }
+
   function buildCourt(group) {
-    buildCity(group, true);   // la ciudad de fondo: cancha callejera
+    buildStands(group);   // estadio: tribunas alrededor de la cancha
     const court = new THREE.Mesh(
       new THREE.PlaneGeometry(104, 62),
       new THREE.MeshStandardMaterial({ map: courtTexture(), roughness: 0.85 })
@@ -873,8 +955,78 @@
   player.add(playerArm);
   scene.add(player);
 
-  const activeThrower = () => scen().thrower === "player" ? player : gorilla;
-  const activeArm = () => scen().thrower === "player" ? playerArm : gorillaArm;
+  // ---------- policía ----------
+  const cSkin = new THREE.MeshStandardMaterial({ color: 0xd2a075, roughness: 0.7 });
+  const cShirt = new THREE.MeshStandardMaterial({ color: 0x27356e, roughness: 0.8 });
+  const cPants = new THREE.MeshStandardMaterial({ color: 0x18203f, roughness: 0.85 });
+  const cBlack = new THREE.MeshStandardMaterial({ color: 0x121318, roughness: 0.6 });
+  const cGold = new THREE.MeshStandardMaterial({ color: 0xe8c34a, roughness: 0.4, metalness: 0.4 });
+
+  const police = new THREE.Group();
+  {
+    for (const sx of [-0.85, 0.85]) {
+      const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.48, 3.2, 6, 12), cPants);
+      leg.position.set(sx, 2.6, 0);
+      leg.castShadow = true;
+      police.add(leg);
+      const shoe = sphere(0.62, cBlack, 1.1, 0.55, 1.5);
+      shoe.position.set(sx, 0.35, 0.25);
+      police.add(shoe);
+    }
+    const hips = sphere(1.35, cPants, 1.05, 0.85, 0.85);
+    hips.position.set(0, 4.9, 0);
+    police.add(hips);
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(1.25, 2.6, 6, 14), cShirt);
+    torso.position.set(0, 7.3, 0);
+    torso.castShadow = true;
+    police.add(torso);
+    // cinturón
+    const belt = new THREE.Mesh(new THREE.CylinderGeometry(1.32, 1.32, 0.5, 16), cBlack);
+    belt.position.set(0, 5.9, 0);
+    police.add(belt);
+    // placa dorada
+    const badge = sphere(0.22, cGold);
+    badge.position.set(-0.55, 8.1, 1.18);
+    police.add(badge);
+    const head = sphere(1.02, cSkin);
+    head.position.set(0, 10.5, 0.1);
+    police.add(head);
+    // gorra con visera
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(1.08, 1.12, 0.62, 16), cShirt);
+    cap.position.set(0, 11.25, 0.05);
+    police.add(cap);
+    const capTop = sphere(1.06, cShirt, 1, 0.45, 1);
+    capTop.position.set(0, 11.55, 0.05);
+    police.add(capTop);
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.12, 0.95), cBlack);
+    visor.position.set(0, 10.98, 1.15);
+    police.add(visor);
+    // brazo izquierdo relajado
+    const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 3.2, 6, 12), cShirt);
+    armL.geometry.translate(0, -1.9, 0);
+    armL.position.set(-1.75, 8.9, 0.15);
+    armL.rotation.z = -0.35;
+    armL.castShadow = true;
+    police.add(armL);
+  }
+  const policeArm = new THREE.Group();
+  policeArm.position.set(1.75, 8.9, 0.2);
+  {
+    const armR = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 3.2, 6, 12), cShirt);
+    armR.geometry.translate(0, -1.9, 0);
+    armR.castShadow = true;
+    policeArm.add(armR);
+  }
+  const policeHand = sphere(0.5, cSkin);
+  policeHand.position.set(0, -3.9, 0);
+  policeArm.add(policeHand);
+  police.add(policeArm);
+  scene.add(police);
+
+  const THROWERS = { gorilla, player, police };
+  const ARMS = { gorilla: gorillaArm, player: playerArm, police: policeArm };
+  const activeThrower = () => THROWERS[scen().thrower];
+  const activeArm = () => ARMS[scen().thrower];
 
   // ==================================================================
   // Proyectiles
@@ -922,6 +1074,16 @@
     return m;
   }
 
+  function makeRock(scale = 1) {
+    const m = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.85, 1),
+      new THREE.MeshStandardMaterial({ color: 0x8a8d94, roughness: 0.95, flatShading: true })
+    );
+    m.castShadow = true;
+    m.scale.set(scale, scale * 0.85, scale * 0.95);
+    return m;
+  }
+
   const bananaFly = makeBanana(1.35);
   bananaFly.rotation.order = "YZX";
   bananaFly.visible = false;
@@ -930,6 +1092,10 @@
   ballFly.rotation.order = "YZX";
   ballFly.visible = false;
   scene.add(ballFly);
+  const rockFly = makeRock(1.25);
+  rockFly.rotation.order = "YZX";
+  rockFly.visible = false;
+  scene.add(rockFly);
 
   const bananaHand = makeBanana(0.7);
   bananaHand.position.set(0, -0.4, 0.9);
@@ -937,9 +1103,14 @@
   const ballHand = makeBall(0.95);
   ballHand.position.set(0, -0.5, 0.7);
   playerHand.add(ballHand);
+  const rockHand = makeRock(0.9);
+  rockHand.position.set(0, -0.5, 0.6);
+  policeHand.add(rockHand);
 
-  const flyItem = () => scen().projectile === "ball" ? ballFly : bananaFly;
-  const handItem = () => scen().projectile === "ball" ? ballHand : bananaHand;
+  const FLY = { banana: bananaFly, ball: ballFly, rock: rockFly };
+  const HAND = { banana: bananaHand, ball: ballHand, rock: rockHand };
+  const flyItem = () => FLY[scen().projectile];
+  const handItem = () => HAND[scen().projectile];
 
   // ==================================================================
   // Blancos: canasto de mimbre y aro de básquet
@@ -995,6 +1166,70 @@
     basketGroup.add(inner);
   }
   scene.add(basketGroup);
+
+  // ---------- tacho de basura metálico ----------
+  function trashTexture() {
+    const c = document.createElement("canvas");
+    c.width = 128; c.height = 128;
+    const g = c.getContext("2d");
+    g.fillStyle = "#8f97a2"; g.fillRect(0, 0, 128, 128);
+    // ribetes verticales de chapa
+    for (let x = 0; x < 128; x += 16) {
+      const grd = g.createLinearGradient(x, 0, x + 16, 0);
+      grd.addColorStop(0, "#7a828d");
+      grd.addColorStop(0.5, "#a2aab5");
+      grd.addColorStop(1, "#6d747f");
+      g.fillStyle = grd;
+      g.fillRect(x, 0, 16, 128);
+    }
+    // un par de abolladuras
+    g.fillStyle = "rgba(60,66,75,.45)";
+    g.beginPath(); g.ellipse(40, 80, 10, 6, 0.4, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(95, 40, 8, 5, -0.3, 0, Math.PI * 2); g.fill();
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(3, 1);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  }
+  const TRASH_H = 5.5;
+  const trashGroup = new THREE.Group();
+  {
+    const tex = trashTexture();
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.7, 2.2, TRASH_H, 24, 1, true),
+      new THREE.MeshStandardMaterial({ map: tex, bumpMap: tex, bumpScale: 0.05, roughness: 0.5, metalness: 0.55, side: THREE.DoubleSide })
+    );
+    body.position.y = TRASH_H / 2;
+    body.castShadow = true;
+    trashGroup.add(body);
+    const rim = new THREE.Mesh(
+      new THREE.TorusGeometry(2.7, 0.18, 10, 30),
+      new THREE.MeshStandardMaterial({ color: 0x6d747f, roughness: 0.45, metalness: 0.6 })
+    );
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = TRASH_H;
+    rim.castShadow = true;
+    trashGroup.add(rim);
+    const inner = new THREE.Mesh(
+      new THREE.CircleGeometry(2.5, 24),
+      new THREE.MeshBasicMaterial({ color: 0x14161a })
+    );
+    inner.rotation.x = -Math.PI / 2;
+    inner.position.y = TRASH_H - 0.5;
+    trashGroup.add(inner);
+    // manijas
+    for (const sx of [-1, 1]) {
+      const handle = new THREE.Mesh(
+        new THREE.TorusGeometry(0.55, 0.1, 8, 14, Math.PI),
+        new THREE.MeshStandardMaterial({ color: 0x5a616b, roughness: 0.5, metalness: 0.6 })
+      );
+      handle.position.set(sx * 2.5, TRASH_H * 0.6, 0);
+      handle.rotation.z = sx * Math.PI / 2;
+      trashGroup.add(handle);
+    }
+  }
+  scene.add(trashGroup);
 
   const pedestalMat = new THREE.MeshStandardMaterial({ color: 0x554668, roughness: 0.8 });
   const pedestalCapMat = new THREE.MeshStandardMaterial({ color: 0x6f5c86, roughness: 0.7 });
@@ -1235,8 +1470,9 @@
       const maxPed = Math.min(16, 3 + state.level * 2.5);
       k.pedestalH = state.level === 1 ? 0 : (Math.random() < 0.35 ? 0 : rand(4, maxPed));
       k.baseY = k.pedestalH;
-      k.rimY = k.baseY + CFG.basketH;
-      basketGroup.position.set(k.x, k.baseY, k.z);
+      k.rimY = k.baseY + sc.cupH;
+      const cupGroup = sc.targetMesh === "trash" ? trashGroup : basketGroup;
+      cupGroup.position.set(k.x, k.baseY, k.z);
       const hasPed = k.pedestalH > 0;
       pedestal.visible = pedestalCap.visible = hasPed;
       if (hasPed) {
@@ -1279,7 +1515,7 @@
     setWind();
     clearTrails();
     state.banana = null;
-    bananaFly.visible = ballFly.visible = false;
+    bananaFly.visible = ballFly.visible = rockFly.visible = false;
     handItem().visible = true;
     state.celebrating = false;
     ui.levelTxt.textContent = state.level;
@@ -1296,14 +1532,17 @@
     ground.material.color.setHex(sc.groundColor);
     gorilla.visible = sc.thrower === "gorilla";
     player.visible = sc.thrower === "player";
-    basketGroup.visible = sc.target === "basket";
-    hoopGroup.visible = sc.target === "hoop";
+    police.visible = sc.thrower === "police";
+    basketGroup.visible = sc.targetMesh === "wicker";
+    trashGroup.visible = sc.targetMesh === "trash";
+    hoopGroup.visible = sc.targetMesh === "hoop";
     if (sc.pedestalColors) {
       pedestalMat.color.setHex(sc.pedestalColors[0]);
       pedestalCapMat.color.setHex(sc.pedestalColors[1]);
     }
     bananaHand.visible = sc.projectile === "banana";
     ballHand.visible = sc.projectile === "ball";
+    rockHand.visible = sc.projectile === "rock";
     ui.throwBtn.textContent = sc.throwLabel;
     ui.scenBtn.textContent = `${sc.emoji} ${sc.name}`;
   }
@@ -1358,7 +1597,7 @@
   function endThrow(hit) {
     commitTrailToLast();
     state.banana = null;
-    bananaFly.visible = ballFly.visible = false;
+    bananaFly.visible = ballFly.visible = rockFly.visible = false;
     if (hit) {
       state.celebrating = true;
       sndScore();
@@ -1373,21 +1612,32 @@
     }
   }
 
+  // integración con subpasos fijos: la trayectoria es idéntica a cualquier framerate
+  const PHYS_H = 1 / 120;
   function updateBanana(dt) {
+    if (!state.banana) return;
+    let remaining = dt;
+    while (remaining > 1e-6 && state.banana) {
+      stepBanana(Math.min(PHYS_H, remaining));
+      remaining -= PHYS_H;
+    }
     const b = state.banana;
     if (!b) return;
+    pushTrail(b.x, b.y, b.z);
+    const item = flyItem();
+    item.position.set(b.x, b.y, b.z);
+    item.rotation.y = Math.atan2(-b.vz, b.vx);
+    item.rotation.z -= dt * 9;
+  }
+
+  function stepBanana(dt) {
+    const b = state.banana;
     b.px = b.x; b.py = b.y; b.pz = b.z;
     b.vx += state.wind * dt;
     b.vy -= CFG.gravity * dt;
     b.x += b.vx * dt;
     b.y += b.vy * dt;
     b.z += b.vz * dt;
-    pushTrail(b.x, b.y, b.z);
-
-    const item = flyItem();
-    item.position.set(b.x, b.y, b.z);
-    item.rotation.y = Math.atan2(-b.vz, b.vx);
-    item.rotation.z -= dt * 9;
 
     const sc = scen();
     const k = state.basket;
@@ -1474,6 +1724,7 @@
     if (state.armUp > 0 && !state.banana) state.armUp = Math.max(0, state.armUp - dt * 3);
     gorillaArm.rotation.z = lerp(0.5, 2.55, state.armUp);
     playerArm.rotation.z = lerp(0.45, 2.6, state.armUp);
+    policeArm.rotation.z = lerp(0.45, 2.6, state.armUp);
     const k = state.basket;
     const arrowBaseY = scen().target === "hoop" ? k.rimY + 4.6 : k.rimY + 3.2;
     arrow.position.set(k.x, arrowBaseY + Math.sin(state.time * 3) * 0.7, k.z);
