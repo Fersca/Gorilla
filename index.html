@@ -35,6 +35,14 @@
   body { position: fixed; inset: 0; }
   #app { position: fixed; inset: 0; }
   canvas { display: block; width: 100%; height: 100%; }
+  /* viñeta sutil para darle profundidad cinematográfica */
+  #vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background: radial-gradient(ellipse at center, transparent 58%, rgba(2, 4, 14, .38) 100%);
+  }
 
   /* ---------- HUD ---------- */
   #hud {
@@ -303,6 +311,7 @@
 </head>
 <body>
 <div id="app"></div>
+<div id="vignette"></div>
 
 <div id="hud">
   <div class="hudGroup">
@@ -781,10 +790,55 @@
     }
   }
 
+  // ------------------------------------------------ estrella fugaz ocasional
+  const shootingStar = new THREE.Mesh(
+    new THREE.PlaneGeometry(16, 0.4),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, fog: false, side: THREE.DoubleSide })
+  );
+  scene.add(shootingStar);
+  const ss = { life: 0, wait: rand(6, 14), vx: 0, vy: 0 };
+  function updateShootingStar(dt) {
+    if (ss.life > 0) {
+      ss.life -= dt * 1.1;
+      shootingStar.position.x += ss.vx * dt;
+      shootingStar.position.y += ss.vy * dt;
+      shootingStar.material.opacity = Math.max(0, ss.life) * 0.85;
+      if (ss.life <= 0) ss.wait = rand(10, 24);
+    } else {
+      ss.wait -= dt;
+      if (ss.wait <= 0) {
+        ss.life = 1;
+        shootingStar.position.set(rand(-180, 180), rand(130, 200), -230);
+        ss.vx = rand(60, 110) * (Math.random() < 0.5 ? -1 : 1);
+        ss.vy = -rand(25, 45);
+        shootingStar.rotation.z = Math.atan2(ss.vy, ss.vx);
+      }
+    }
+  }
+
   // ------------------------------------------------ piso
+  // textura de ruido para que el piso no sea un color plano
+  function groundNoiseTexture() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const g = c.getContext("2d");
+    g.fillStyle = "#9a9a9a";
+    g.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 900; i++) {
+      const v = 120 + (Math.random() * 90) | 0;
+      g.fillStyle = `rgba(${v},${v},${v},.25)`;
+      g.beginPath();
+      g.ellipse(Math.random() * 256, Math.random() * 256, rand(2, 10), rand(2, 8), rand(0, 3), 0, Math.PI * 2);
+      g.fill();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(60, 22);
+    return tex;
+  }
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(3000, 1000),
-    new THREE.MeshStandardMaterial({ color: 0x131b0e, roughness: 1 })
+    new THREE.MeshStandardMaterial({ color: 0x131b0e, roughness: 1, map: groundNoiseTexture() })
   );
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(0, 0, -100);
@@ -1041,6 +1095,87 @@
       );
       neon.position.set(-58, 12.5, -16.8);
       group.add(neon);
+
+      // grúa de construcción en el fondo
+      const crane = new THREE.Group();
+      const craneMat = new THREE.MeshStandardMaterial({ color: 0xc9a13a, roughness: 0.7 });
+      const mast = new THREE.Mesh(new THREE.BoxGeometry(1.6, 42, 1.6), craneMat);
+      mast.position.y = 21;
+      crane.add(mast);
+      const jib = new THREE.Mesh(new THREE.BoxGeometry(30, 1.3, 1.3), craneMat);
+      jib.position.set(11, 42, 0);
+      crane.add(jib);
+      const counter = new THREE.Mesh(new THREE.BoxGeometry(3.5, 2.4, 2.4), new THREE.MeshStandardMaterial({ color: 0x5a5f6a, roughness: 0.8 }));
+      counter.position.set(-6.5, 41.6, 0);
+      crane.add(counter);
+      const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 14, 4), new THREE.MeshBasicMaterial({ color: 0x9aa0aa }));
+      cable.position.set(20, 34.5, 0);
+      crane.add(cable);
+      const hook = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), craneMat);
+      hook.position.set(20, 26.8, 0);
+      crane.add(hook);
+      const craneBeacon = new THREE.Mesh(
+        new THREE.SphereGeometry(0.5, 8, 6),
+        new THREE.MeshBasicMaterial({ color: 0xff3b30, toneMapped: false })
+      );
+      craneBeacon.position.set(0, 43.4, 0);
+      crane.add(craneBeacon);
+      group.userData.blinkers.push(craneBeacon);
+      crane.position.set(-96, 0, -58);
+      group.add(crane);
+
+      // pasarela entre dos edificios
+      const bridge = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({ color: 0x1f2c52, roughness: 0.9 }));
+      bridge.position.set(-2, 16, -46);
+      bridge.scale.set(26, 3.2, 5);
+      group.add(bridge);
+      for (let i = 0; i < 6; i++) {
+        const win = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.6, 1.4),
+          new THREE.MeshBasicMaterial({ color: 0xffd876, toneMapped: false })
+        );
+        win.position.set(-12.5 + i * 4.2, 17.6, -43.4);
+        group.add(win);
+      }
+
+      // helicóptero patrullando (animado)
+      const heli = new THREE.Group();
+      const hBodyMat = new THREE.MeshStandardMaterial({ color: 0x2a3240, roughness: 0.6 });
+      const hBody = sphere(1.4, hBodyMat, 1.5, 0.9, 0.9);
+      heli.add(hBody);
+      const hTail = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.5, 0.5), hBodyMat);
+      hTail.position.set(-3, 0.3, 0);
+      heli.add(hTail);
+      const rotor = new THREE.Mesh(new THREE.BoxGeometry(7, 0.12, 0.5), new THREE.MeshStandardMaterial({ color: 0x9aa0aa, roughness: 0.4 }));
+      rotor.position.y = 1.5;
+      heli.add(rotor);
+      const hLight = new THREE.Mesh(
+        new THREE.SphereGeometry(0.32, 8, 6),
+        new THREE.MeshBasicMaterial({ color: 0xff3b30, toneMapped: false })
+      );
+      hLight.position.y = -1.1;
+      heli.add(hLight);
+      group.add(heli);
+      group.userData.heli = { g: heli, rotor, light: hLight };
+
+      // vapor saliendo de una alcantarilla
+      const steamTex = glowTexture("rgba(200,205,215,.4)", "rgba(200,205,215,0)");
+      if (!group.userData.smoke) group.userData.smoke = [];
+      const grate = new THREE.Vector3(-12, 0.4, 20.2);
+      for (let i = 0; i < 3; i++) {
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: steamTex, transparent: true, depthWrite: false, opacity: 0 }));
+        group.add(s);
+        group.userData.smoke.push({ s, spot: grate, off: i / 3 });
+      }
+
+      // papeles tirados cerca del tacho
+      const paperMat = new THREE.MeshStandardMaterial({ color: 0xe8e8e2, roughness: 0.9, side: THREE.DoubleSide });
+      for (let i = 0; i < 8; i++) {
+        const paper = new THREE.Mesh(new THREE.PlaneGeometry(rand(0.5, 0.9), rand(0.4, 0.7)), paperMat);
+        paper.rotation.set(-Math.PI / 2 + rand(-0.3, 0.3), 0, rand(0, Math.PI * 2));
+        paper.position.set(rand(5, 45), 0.12, rand(-14, 10));
+        group.add(paper);
+      }
     }
   }
 
@@ -1273,6 +1408,68 @@
     toucan.rotation.y = 0.5;
     group.add(toucan);
 
+    // cascada que alimenta la laguna
+    const cliffMat = new THREE.MeshStandardMaterial({ color: 0x5d6168, roughness: 0.95, flatShading: true });
+    for (const [cx3, cy3, cs] of [[-97, 4, 5.5], [-92, 6.5, 4.5], [-101, 7, 4], [-95, 10, 3.6]]) {
+      const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(cs, 0), cliffMat);
+      rock.position.set(cx3, cy3, 8);
+      rock.rotation.set(rand(0, 3), rand(0, 3), 0);
+      rock.castShadow = true;
+      group.add(rock);
+    }
+    const wc = document.createElement("canvas");
+    wc.width = 64; wc.height = 128;
+    const wg = wc.getContext("2d");
+    wg.fillStyle = "rgba(120,190,220,.35)"; wg.fillRect(0, 0, 64, 128);
+    for (let i = 0; i < 26; i++) {
+      wg.fillStyle = `rgba(235,250,255,${rand(0.25, 0.7)})`;
+      wg.fillRect(rand(0, 60), rand(0, 120), rand(2, 5), rand(10, 34));
+    }
+    const waterTex = new THREE.CanvasTexture(wc);
+    waterTex.wrapS = waterTex.wrapT = THREE.RepeatWrapping;
+    const waterfall = new THREE.Mesh(
+      new THREE.PlaneGeometry(5.4, 12),
+      new THREE.MeshBasicMaterial({ map: waterTex, transparent: true, depthWrite: false, side: THREE.DoubleSide })
+    );
+    waterfall.position.set(-94.5, 6.2, 10.5);
+    group.add(waterfall);
+    group.userData.waterTex = waterTex;
+    const mistBase = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTexture("rgba(220,240,250,.55)", "rgba(220,240,250,0)"),
+      transparent: true, depthWrite: false,
+    }));
+    mistBase.scale.set(10, 5, 1);
+    mistBase.position.set(-94, 1.5, 11.5);
+    group.add(mistBase);
+
+    // bruma baja que deriva por el fondo
+    const mistTex = glowTexture("rgba(200,225,215,.28)", "rgba(200,225,215,0)");
+    const mists = [];
+    for (let i = 0; i < 5; i++) {
+      const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: mistTex, transparent: true, depthWrite: false, opacity: rand(0.4, 0.7) }));
+      m.scale.set(rand(28, 48), rand(5, 8), 1);
+      m.position.set(rand(-100, 100), rand(1.5, 4), rand(-70, -30));
+      group.add(m);
+      mists.push({ m, v: rand(0.6, 1.6) });
+    }
+    group.userData.mists = mists;
+
+    // bandada de pájaros en círculos
+    const birds = [];
+    const birdMat = new THREE.MeshBasicMaterial({ color: 0x10141c, side: THREE.DoubleSide });
+    for (let i = 0; i < 5; i++) {
+      const bird = new THREE.Group();
+      const wl = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.5), birdMat);
+      wl.position.x = -0.8;
+      const wr = wl.clone();
+      wr.position.x = 0.8;
+      bird.add(wl); bird.add(wr);
+      bird.userData.wl = wl; bird.userData.wr = wr;
+      group.add(bird);
+      birds.push({ bird, ph: rand(0, 6.28), r: rand(28, 46), cy: rand(30, 44) });
+    }
+    group.userData.birds = birds;
+
     // mariposas que revolotean
     const bfColors = [0x7cc4ff, 0xffd54a, 0xff7ce0];
     const butterflies = [];
@@ -1405,21 +1602,13 @@
     group.userData.flashes = flashes;
     group.userData.crowdPts = crowdPos;
 
-    // marcador sobre la tribuna del fondo
+    // marcador sobre la tribuna del fondo (muestra el nivel en vivo)
     const sb = document.createElement("canvas");
     sb.width = 512; sb.height = 160;
     const sg = sb.getContext("2d");
-    sg.fillStyle = "#10141c"; sg.fillRect(0, 0, 512, 160);
-    sg.strokeStyle = "#ffd54a"; sg.lineWidth = 8; sg.strokeRect(8, 8, 496, 144);
-    sg.fillStyle = "#ffd54a";
-    sg.font = "bold 56px sans-serif";
-    sg.textAlign = "center";
-    sg.fillText("GORILLA ARENA", 256, 74);
-    sg.fillStyle = "#f2f2f2";
-    sg.font = "bold 40px sans-serif";
-    sg.fillText("★ ★ ★", 256, 128);
     const sbTex = new THREE.CanvasTexture(sb);
     sbTex.encoding = THREE.sRGBEncoding;
+    group.userData.sb = { g: sg, tex: sbTex, last: "" };
     const board = new THREE.Mesh(
       new THREE.BoxGeometry(26, 8.5, 1.2),
       [null, null, null, null,
@@ -1434,6 +1623,26 @@
       leg.position.set(px, 19, -62);
       group.add(leg);
     }
+
+    // banderas flameando en lo alto de las tribunas laterales
+    const flagCols = [0xffd54a, 0xe04b3a];
+    const flags = [];
+    [[-70, -20], [72, -20]].forEach(([fx, fz], i) => {
+      const mast2 = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 34, 8), stepMat);
+      mast2.position.set(fx, 17, fz);
+      group.add(mast2);
+      const fGroup = new THREE.Group();
+      fGroup.position.set(fx, 32.5, fz);
+      const flag = new THREE.Mesh(
+        new THREE.PlaneGeometry(5, 3),
+        new THREE.MeshStandardMaterial({ color: flagCols[i], roughness: 0.8, side: THREE.DoubleSide })
+      );
+      flag.position.x = 2.6;
+      fGroup.add(flag);
+      group.add(fGroup);
+      flags.push(fGroup);
+    });
+    group.userData.flags = flags;
 
     // banderines de colores cruzando sobre la cancha
     const penMats = palette.slice(0, 6).map(c => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide, toneMapped: false }));
@@ -1527,6 +1736,26 @@
       const bb = makeBall(0.55);
       bb.position.set(9.3 + (i % 2) * 1.4, 1.75, -35.1 + ((i / 2) | 0) * 1.1);
       group.add(bb);
+    }
+    // porristas con pompones
+    for (let i = 0; i < 4; i++) {
+      const ch = new THREE.Group();
+      const dress = new THREE.Mesh(
+        new THREE.ConeGeometry(1, 2.6, 8),
+        new THREE.MeshStandardMaterial({ color: i % 2 ? 0xff7ce0 : 0xf2f6ff, roughness: 0.85 })
+      );
+      dress.position.y = 2.2;
+      ch.add(dress);
+      const hd = sphere(0.6, pSkin);
+      hd.position.y = 4.1;
+      ch.add(hd);
+      for (const sx of [-1, 1]) {
+        const pom = sphere(0.42, new THREE.MeshStandardMaterial({ color: sx < 0 ? 0xff44aa : 0x44d0ff, roughness: 0.9 }));
+        pom.position.set(sx * 1.1, 4.9, 0.2);
+        ch.add(pom);
+      }
+      ch.position.set(-12 + i * 3, 0, -33.4);
+      group.add(ch);
     }
   }
 
@@ -1848,6 +2077,57 @@
       rail.rotation.y = -fr;
       rail.position.set(fx + Math.cos(fr) * fl / 2, 1.35, fz + Math.sin(fr) * fl / 2);
       group.add(rail);
+    }
+
+    // molino de viento con aspas girando
+    const mill = new THREE.Group();
+    const millWall = new THREE.MeshStandardMaterial({ color: 0xd8ccb0, roughness: 0.9 });
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 4.2, 16, 10), millWall);
+    tower.position.y = 8;
+    tower.castShadow = true;
+    mill.add(tower);
+    const millRoof = new THREE.Mesh(new THREE.ConeGeometry(3.1, 3.4, 10), roofMat);
+    millRoof.position.y = 17.6;
+    mill.add(millRoof);
+    const millDoor = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.6, 0.3), doorMat);
+    millDoor.position.set(0, 1.3, 4);
+    mill.add(millDoor);
+    const blades = new THREE.Group();
+    blades.position.set(0, 14.5, 3.4);
+    const bladeMat = new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.85, side: THREE.DoubleSide });
+    for (let i = 0; i < 4; i++) {
+      const blade = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 8), bladeMat);
+      blade.position.y = 4.6;
+      const holder = new THREE.Group();
+      holder.rotation.z = i * Math.PI / 2;
+      holder.add(blade);
+      blades.add(holder);
+    }
+    mill.add(blades);
+    mill.position.set(88, 0, -52);
+    mill.scale.setScalar(1.4);
+    group.add(mill);
+    group.userData.mill = blades;
+
+    // ovejas pastando junto a la cerca
+    const woolMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d8, roughness: 1 });
+    const sheepFace = new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.9 });
+    for (const [sx3, sz3, sr3] of [[-48, -24, 0.4], [-42, -30, 2.4], [-52, -32, 1.2]]) {
+      const sheep = new THREE.Group();
+      const body = sphere(1.15, woolMat, 1.25, 1, 1);
+      body.position.y = 1.35;
+      sheep.add(body);
+      const hd = sphere(0.45, sheepFace);
+      hd.position.set(1.35, 1.5, 0);
+      sheep.add(hd);
+      for (const [lx3, lz3] of [[-0.7, 0.4], [0.7, 0.4], [-0.7, -0.4], [0.7, -0.4]]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.8, 5), sheepFace);
+        leg.position.set(lx3, 0.4, lz3);
+        sheep.add(leg);
+      }
+      sheep.position.set(sx3, 0, sz3);
+      sheep.rotation.y = sr3;
+      group.add(sheep);
     }
   }
 
@@ -3547,6 +3827,7 @@
     updateParticles(dt);
     updateLeaves(dt);
     updateClouds(dt);
+    updateShootingStar(dt);
     updateAim();
 
     // animaciones
@@ -3614,6 +3895,59 @@
           }
         }
       }
+      // helicóptero patrullando la ciudad
+      const heli = envGroup.userData.heli;
+      if (heli) {
+        const a = state.time * 0.09;
+        heli.g.position.set(Math.cos(a) * 85, 52 + Math.sin(state.time * 0.5) * 3, -60 + Math.sin(a) * 45);
+        heli.g.rotation.y = -a;
+        heli.rotor.rotation.y += dt * 28;
+        heli.light.visible = Math.sin(state.time * 6) > 0;
+      }
+      // cascada
+      const wt = envGroup.userData.waterTex;
+      if (wt) wt.offset.y -= dt * 0.9;
+      // bruma
+      const mists = envGroup.userData.mists;
+      if (mists) for (const { m, v } of mists) {
+        m.position.x += v * dt;
+        if (m.position.x > 110) m.position.x = -110;
+      }
+      // bandada de pájaros
+      const birds = envGroup.userData.birds;
+      if (birds) for (const { bird, ph, r, cy } of birds) {
+        const a = state.time * 0.25 + ph;
+        bird.position.set(Math.cos(a) * r, cy + Math.sin(state.time * 1.1 + ph) * 2, -55 + Math.sin(a) * r * 0.6);
+        bird.rotation.y = -a + Math.PI / 2;
+        const flap = Math.sin(state.time * 9 + ph) * 0.55;
+        bird.userData.wl.rotation.y = flap;
+        bird.userData.wr.rotation.y = -flap;
+      }
+      // marcador en vivo del estadio
+      const sb = envGroup.userData.sb;
+      if (sb) {
+        const txt = `NIVEL ${state.level}  ·  TIROS ${state.tries}`;
+        if (txt !== sb.last) {
+          sb.last = txt;
+          const sg = sb.g;
+          sg.fillStyle = "#10141c"; sg.fillRect(0, 0, 512, 160);
+          sg.strokeStyle = "#ffd54a"; sg.lineWidth = 8; sg.strokeRect(8, 8, 496, 144);
+          sg.fillStyle = "#ffd54a";
+          sg.font = "bold 52px sans-serif";
+          sg.textAlign = "center";
+          sg.fillText("GORILLA ARENA", 256, 70);
+          sg.fillStyle = "#f2f2f2";
+          sg.font = "bold 38px sans-serif";
+          sg.fillText(txt, 256, 126);
+          sb.tex.needsUpdate = true;
+        }
+      }
+      // banderas flameando
+      const flags = envGroup.userData.flags;
+      if (flags) flags.forEach((f, i) => { f.rotation.y = Math.sin(state.time * 1.8 + i * 2) * 0.45; });
+      // aspas del molino
+      const mill = envGroup.userData.mill;
+      if (mill) mill.rotation.z += dt * 0.5;
     }
 
     // el lanzador rota suavemente hacia el giro elegido
