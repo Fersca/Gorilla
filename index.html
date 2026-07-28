@@ -110,7 +110,7 @@
   #banner p { font-size: clamp(13px, 3.5vw, 17px); opacity: .9; font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
 
   /* ---------- ranking ---------- */
-  #rankOverlay {
+  #rankOverlay, #installOverlay {
     position: fixed;
     inset: 0;
     display: none;
@@ -121,8 +121,10 @@
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
   }
-  #rankOverlay.show { display: flex; }
-  #rankCard {
+  #rankOverlay.show, #installOverlay.show { display: flex; }
+  #installCard p { font-size: 14px; line-height: 1.55; max-width: 300px; }
+  #installCard b { color: var(--accent); }
+  #installCard, #rankCard {
     background: var(--panel-bg);
     border: 1px solid var(--panel-border);
     border-radius: 18px;
@@ -131,7 +133,7 @@
     max-width: 92vw;
     box-shadow: 0 24px 70px rgba(0,0,0,.6);
   }
-  #rankCard h2 { font-size: 20px; margin-bottom: 14px; color: var(--accent); text-align: center; }
+  #rankCard h2, #installCard h2 { font-size: 20px; margin-bottom: 14px; color: var(--accent); text-align: center; }
   #rankCard table { width: 100%; border-collapse: collapse; font-size: 14px; }
   #rankCard th, #rankCard td { padding: 7px 10px; text-align: right; white-space: nowrap; }
   #rankCard th:first-child, #rankCard td:first-child { text-align: left; }
@@ -313,6 +315,8 @@
     <button class="chip" id="windBtn">💨 ON</button>
     <div class="chip" id="windChip" style="display:none"><span id="windArrow">→</span> <b id="windTxt">0</b></div>
     <button class="chip" id="viewBtn">📷 Vista</button>
+    <button class="chip" id="fsBtn">⛶ Pantalla</button>
+    <button class="chip" id="installBtn">📲 Instalar</button>
   </div>
 </div>
 
@@ -322,6 +326,14 @@
   <div id="rankCard">
     <h2>🏆 Ranking</h2>
     <table id="rankTable"></table>
+    <p class="rankHint">tocá en cualquier lado para cerrar</p>
+  </div>
+</div>
+
+<div id="installOverlay">
+  <div id="installCard">
+    <h2>📲 Instalar la app</h2>
+    <p id="installMsg"></p>
     <p class="rankHint">tocá en cualquier lado para cerrar</p>
   </div>
 </div>
@@ -477,6 +489,10 @@
     rankBtn: document.getElementById("rankBtn"),
     rankOverlay: document.getElementById("rankOverlay"),
     rankTable: document.getElementById("rankTable"),
+    fsBtn: document.getElementById("fsBtn"),
+    installBtn: document.getElementById("installBtn"),
+    installOverlay: document.getElementById("installOverlay"),
+    installMsg: document.getElementById("installMsg"),
     levelTxt: document.getElementById("levelTxt"),
     triesTxt: document.getElementById("triesTxt"),
     windChip: document.getElementById("windChip"),
@@ -2626,6 +2642,57 @@
   }
   ui.rankBtn.addEventListener("click", showRanking);
   ui.rankOverlay.addEventListener("click", () => ui.rankOverlay.classList.remove("show"));
+
+  // ------------------------------------------------ pantalla completa
+  const fsEl = document.documentElement;
+  const fsSupported = !!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen);
+  if (!fsSupported) ui.fsBtn.style.display = "none";
+  function updateFsBtn() {
+    const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    ui.fsBtn.textContent = on ? "⛶ Salir" : "⛶ Pantalla";
+  }
+  ui.fsBtn.addEventListener("click", () => {
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      } else {
+        const r = (fsEl.requestFullscreen || fsEl.webkitRequestFullscreen).call(fsEl, { navigationUI: "hide" });
+        if (r && r.catch) r.catch(() => {});
+      }
+    } catch (e) { /* algunos navegadores lo bloquean */ }
+    setTimeout(updateFsBtn, 350);   // por si el evento no llega
+  });
+  document.addEventListener("fullscreenchange", () => { updateFsBtn(); onResize(); });
+  document.addEventListener("webkitfullscreenchange", () => { updateFsBtn(); onResize(); });
+
+  // ------------------------------------------------ instalar como app
+  // Chrome/Android exponen el prompt nativo; en el resto mostramos
+  // las instrucciones del navegador correspondiente.
+  let installPrompt = null;
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    installPrompt = e;
+  });
+  const isStandalone = navigator.standalone === true
+    || window.matchMedia("(display-mode: standalone)").matches
+    || window.matchMedia("(display-mode: fullscreen)").matches;
+  if (isStandalone) ui.installBtn.style.display = "none";   // ya está instalada
+  window.addEventListener("appinstalled", () => { ui.installBtn.style.display = "none"; });
+  ui.installBtn.addEventListener("click", async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      try { await installPrompt.userChoice; } catch (e) {}
+      installPrompt = null;
+      return;
+    }
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    ui.installMsg.innerHTML = isIOS
+      ? "En iPhone/iPad: tocá el botón <b>Compartir</b> de Safari (el cuadradito con la flecha ↑) y elegí <b>“Agregar a pantalla de inicio”</b>. Te queda el ícono del gorila 🦍 y abre en pantalla completa."
+      : "Abrí el menú <b>⋮</b> (o <b>≡</b>) de tu navegador y elegí <b>“Instalar app”</b> o <b>“Agregar a pantalla principal”</b>. Te queda el ícono del gorila 🦍 y abre en pantalla completa.";
+    ui.installOverlay.classList.add("show");
+  });
+  ui.installOverlay.addEventListener("click", () => ui.installOverlay.classList.remove("show"));
 
   // ------------------------------------------------ botones −/+ de cada slider
   const SLIDER_META = {

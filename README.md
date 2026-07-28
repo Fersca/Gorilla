@@ -21,7 +21,7 @@ Abrí `index.html` en cualquier navegador (funciona directo desde el archivo, si
 
 ### Instalar como app 📲
 
-El juego es una **PWA**: desde el navegador del celular usá *"Agregar a pantalla de inicio"* / *"Instalar app"* y queda un ícono del gorila en el escritorio. Abierto desde ahí corre en **pantalla completa**, sin barra de direcciones ni controles del navegador, y funciona **offline** (el service worker cachea todo).
+El juego es una **PWA**: el botón **📲 Instalar** del HUD dispara la instalación nativa donde el navegador la soporta (Chrome/Android), y en el resto (iPhone, Firefox…) muestra las instrucciones del navegador correspondiente. Instalada queda con el ícono del gorila y abre en **pantalla completa**, sin controles del navegador, y funciona **offline**. Jugando desde el navegador, el botón **⛶ Pantalla** pone el juego en pantalla completa sin instalar nada.
 
 - **Ángulo**, **Giro** y **Fuerza**: con los sliders, con los botones **−/+** al lado de cada uno (mantenelos apretados para repetir), o con el teclado (`↑`/`↓` ángulo, `Q`/`E` giro, `←`/`→` fuerza).
 - **Ranking** (botón `🏆`): récords guardados en el dispositivo por escenario — mejor nivel, emboques, intentos y efectividad. Cuando superás tu mejor nivel, el festejo lo anuncia.
