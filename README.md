@@ -18,6 +18,10 @@ El botón del HUD (arriba a la izquierda) cambia entre tres escenarios:
 
 Abrí `index.html` en cualquier navegador (funciona directo desde el archivo, sin servidor ni build). En el celular ocupa toda la pantalla; se ve mejor apaisado.
 
+### Instalar como app 📲
+
+El juego es una **PWA**: desde el navegador del celular usá *"Agregar a pantalla de inicio"* / *"Instalar app"* y queda un ícono del gorila en el escritorio. Abierto desde ahí corre en **pantalla completa**, sin barra de direcciones ni controles del navegador, y funciona **offline** (el service worker cachea todo).
+
 - **Ángulo**, **Giro** y **Fuerza**: con los sliders, o con el teclado (`↑`/`↓` ángulo, `Q`/`E` giro, `←`/`→` fuerza).
 - **Giro**: rota al gorila sobre su eje — el tiro es balística 3D real (x, y, z), así que además de la parábola tenés que apuntar bien en el plano horizontal, porque el canasto aparece a distintas profundidades.
 - **Lanzar**: botón `¡LANZAR!` o barra espaciadora.
