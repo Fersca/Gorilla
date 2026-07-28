@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🦍 Gorilla Banana — homenaje a GORILLA.BAS</title>
+<style>
+  :root {
+    --panel-bg: rgba(15, 20, 40, 0.72);
+    --panel-border: rgba(255, 255, 255, 0.14);
+    --accent: #ffd54a;
+    --accent-2: #ff9d2e;
+    --text: #eef2ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: radial-gradient(1200px 800px at 50% 20%, #1b2350 0%, #0b0f24 60%, #05070f 100%);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #wrap {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 16px;
+  }
+  #stage {
+    position: relative;
+    width: min(100%, calc((100vh - 190px) * 16 / 9));
+    max-width: 1280px;
+    aspect-ratio: 16 / 9;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 24px 70px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08) inset;
+  }
+  canvas { width: 100%; height: 100%; display: block; }
+
+  /* ---------- HUD ---------- */
+  .hud {
+    position: absolute;
+    top: 14px;
+    display: flex;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .hud.left  { left: 14px; }
+  .hud.right { right: 14px; }
+  .chip {
+    background: var(--panel-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35);
+  }
+  .chip b { color: var(--accent); font-size: 16px; }
+  #windArrow { display: inline-block; transition: transform .3s; font-size: 15px; }
+
+  /* ---------- banner de nivel ---------- */
+  #banner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .35s;
+  }
+  #banner.show { opacity: 1; }
+  #banner h1 {
+    font-size: clamp(34px, 6vw, 72px);
+    font-weight: 800;
+    background: linear-gradient(180deg, #fff, var(--accent) 55%, var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 6px 22px rgba(255, 170, 40, .45));
+    transform: scale(.85);
+    transition: transform .35s cubic-bezier(.2, 1.6, .4, 1);
+  }
+  #banner.show h1 { transform: scale(1); }
+  #banner p { font-size: 16px; opacity: .85; font-weight: 600; }
+
+  /* ---------- controles ---------- */
+  #controls {
+    width: min(100%, 1280px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    flex-wrap: wrap;
+    background: var(--panel-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 14px 22px;
+    box-shadow: 0 14px 40px rgba(0,0,0,.45);
+  }
+  .ctl {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 260px;
+    flex: 1;
+    max-width: 380px;
+  }
+  .ctl label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    opacity: .75;
+    white-space: nowrap;
+  }
+  .ctl output {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    font-size: 18px;
+    color: var(--accent);
+    min-width: 52px;
+    text-align: right;
+  }
+  input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--accent) var(--fill, 50%), rgba(255,255,255,.15) var(--fill, 50%));
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, var(--accent) 60%, var(--accent-2));
+    box-shadow: 0 3px 10px rgba(0,0,0,.5), 0 0 0 3px rgba(255,213,74,.25);
+    cursor: grab;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 22px; height: 22px; border: none;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, var(--accent) 60%, var(--accent-2));
+    box-shadow: 0 3px 10px rgba(0,0,0,.5), 0 0 0 3px rgba(255,213,74,.25);
+    cursor: grab;
+  }
+  #throwBtn {
+    font: inherit;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: .6px;
+    padding: 13px 34px;
+    border: none;
+    border-radius: 14px;
+    color: #2b1a00;
+    background: linear-gradient(180deg, #ffe27a, var(--accent) 45%, var(--accent-2));
+    box-shadow: 0 8px 22px rgba(255, 160, 30, .38), 0 1px 0 rgba(255,255,255,.6) inset;
+    cursor: pointer;
+    transition: transform .12s, box-shadow .12s, filter .12s;
+  }
+  #throwBtn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(255,160,30,.5), 0 1px 0 rgba(255,255,255,.6) inset; }
+  #throwBtn:active:not(:disabled) { transform: translateY(1px) scale(.98); }
+  #throwBtn:disabled { filter: grayscale(.7) brightness(.65); cursor: default; }
+  #hint { font-size: 12px; opacity: .55; text-align: center; width: 100%; }
+  kbd {
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-family: inherit;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <div class="hud left">
+      <div class="chip">🏆 Nivel <b id="levelTxt">1</b></div>
+      <div class="chip">🍌 Intentos <b id="triesTxt">0</b></div>
+    </div>
+    <div class="hud right">
+      <div class="chip" id="windChip" style="display:none">💨 Viento <span id="windArrow">→</span> <b id="windTxt">0</b></div>
+    </div>
+    <div id="banner"><h1 id="bannerTitle">¡GORILLA!</h1><p id="bannerSub">Emboca la banana en el canasto</p></div>
+  </div>
+
+  <div id="controls">
+    <div class="ctl">
+      <label for="angle">Ángulo</label>
+      <input type="range" id="angle" min="10" max="85" value="45" step="1">
+      <output id="angleOut">45°</output>
+    </div>
+    <div class="ctl">
+      <label for="power">Fuerza</label>
+      <input type="range" id="power" min="20" max="100" value="60" step="1">
+      <output id="powerOut">60</output>
+    </div>
+    <button id="throwBtn">🍌 ¡LANZAR!</button>
+    <div id="hint"><kbd>↑</kbd><kbd>↓</kbd> ángulo &nbsp;·&nbsp; <kbd>←</kbd><kbd>→</kbd> fuerza &nbsp;·&nbsp; <kbd>Espacio</kbd> lanzar</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ------------------------------------------------------------------
+  // Configuración general
+  // ------------------------------------------------------------------
+  const W = 1280, H = 720;
+  const GROUND_Y = H - 66;
+  const GRAVITY = 340;              // px/s²
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  canvas.width = W;
+  canvas.height = H;
+
+  const ui = {
+    angle: document.getElementById("angle"),
+    power: document.getElementById("power"),
+    angleOut: document.getElementById("angleOut"),
+    powerOut: document.getElementById("powerOut"),
+    throwBtn: document.getElementById("throwBtn"),
+    levelTxt: document.getElementById("levelTxt"),
+    triesTxt: document.getElementById("triesTxt"),
+    windChip: document.getElementById("windChip"),
+    windTxt: document.getElementById("windTxt"),
+    windArrow: document.getElementById("windArrow"),
+    banner: document.getElementById("banner"),
+    bannerTitle: document.getElementById("bannerTitle"),
+    bannerSub: document.getElementById("bannerSub"),
+  };
+
+  // ------------------------------------------------------------------
+  // Estado del juego
+  // ------------------------------------------------------------------
+  const state = {
+    level: 1,
+    tries: 0,
+    wind: 0,                        // aceleración horizontal px/s²
+    banana: null,                   // {x, y, vx, vy, rot}
+    trail: [],
+    lastTrail: [],                  // estela del tiro anterior (guía tenue)
+    particles: [],
+    stars: [],
+    buildings: [],
+    basket: { x: 0, y: 0, w: 92, h: 58, pedestalH: 0 },
+    gorilla: { x: 130, y: GROUND_Y, armUp: 0 },   // armUp: 0..1 animación del brazo
+    shake: 0,
+    celebrating: false,
+    time: 0,
+  };
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+
+  // ------------------------------------------------------------------
+  // Sonido (WebAudio, sintetizado — sin archivos)
+  // ------------------------------------------------------------------
+  let audioCtx = null;
+  function beep(freq, dur, type = "sine", vol = 0.15, when = 0) {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const t = audioCtx.currentTime + when;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t);
+      o.stop(t + dur);
+    } catch (e) { /* audio bloqueado: no pasa nada */ }
+  }
+  const sndThrow = () => { beep(220, .12, "triangle", .1); beep(440, .1, "triangle", .06, .04); };
+  const sndMiss  = () => { beep(110, .25, "sawtooth", .12); };
+  const sndScore = () => { [523, 659, 784, 1047].forEach((f, i) => beep(f, .18, "triangle", .14, i * .09)); };
+
+  // ------------------------------------------------------------------
+  // Generación de nivel
+  // ------------------------------------------------------------------
+  function makeStars() {
+    state.stars = [];
+    for (let i = 0; i < 90; i++) {
+      state.stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H * 0.55,
+        r: rand(0.4, 1.6),
+        tw: rand(0.5, 2.5),
+        ph: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+
+  function makeBuildings() {
+    state.buildings = [];
+    const palette = ["#1c2f5e", "#24356b", "#182a52", "#2a3d78", "#203361"];
+    let x = -20;
+    while (x < W + 40) {
+      const bw = rand(70, 150);
+      const bh = rand(90, 300);
+      const b = {
+        x, w: bw, h: bh,
+        color: palette[(Math.random() * palette.length) | 0],
+        windows: [],
+      };
+      const cols = Math.max(2, (bw / 24) | 0);
+      const rows = Math.max(2, (bh / 34) | 0);
+      for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < rows; r++) {
+          if (Math.random() < 0.55) {
+            b.windows.push({
+              x: 8 + c * (bw - 16) / cols + rand(-1, 1),
+              y: 12 + r * (bh - 20) / rows,
+              lit: Math.random() < 0.6,
+            });
+          }
+        }
+      }
+      state.buildings.push(b);
+      x += bw + rand(4, 14);
+    }
+  }
+
+  function placeBasket() {
+    const b = state.basket;
+    const minX = W * 0.48, maxX = W - 90;
+    b.x = rand(minX, maxX);
+    // A partir del nivel 2 el canasto puede estar elevado sobre un pedestal
+    const maxPedestal = Math.min(280, 40 + state.level * 45);
+    b.pedestalH = state.level === 1 ? 0 : (Math.random() < 0.35 ? 0 : rand(50, maxPedestal));
+    b.y = GROUND_Y - b.pedestalH;   // y = base del canasto
+  }
+
+  function setWind() {
+    if (state.level < 3) { state.wind = 0; ui.windChip.style.display = "none"; return; }
+    const max = Math.min(70, 15 + state.level * 8);
+    state.wind = rand(-max, max);
+    if (Math.abs(state.wind) < 8) state.wind = 0;
+    ui.windChip.style.display = state.wind === 0 ? "none" : "flex";
+    ui.windTxt.textContent = Math.abs(state.wind).toFixed(0);
+    ui.windArrow.textContent = state.wind > 0 ? "→" : "←";
+  }
+
+  function newLevel(first = false) {
+    makeBuildings();
+    placeBasket();
+    setWind();
+    state.trail = [];
+    state.lastTrail = [];
+    state.banana = null;
+    state.celebrating = false;
+    ui.levelTxt.textContent = state.level;
+    ui.throwBtn.disabled = false;
+    if (!first) {
+      showBanner(`¡NIVEL ${state.level}!`, "El canasto se movió… encontralo de nuevo 🧺");
+    }
+  }
+
+  function showBanner(title, sub, ms = 1900) {
+    ui.bannerTitle.textContent = title;
+    ui.bannerSub.textContent = sub;
+    ui.banner.classList.add("show");
+    clearTimeout(showBanner._t);
+    showBanner._t = setTimeout(() => ui.banner.classList.remove("show"), ms);
+  }
+
+  // ------------------------------------------------------------------
+  // Lanzamiento y física
+  // ------------------------------------------------------------------
+  function handPos() {
+    const g = state.gorilla;
+    return { x: g.x + 34, y: g.y - 92 };
+  }
+
+  function throwBanana() {
+    if (state.banana || state.celebrating) return;
+    const angle = (+ui.angle.value) * Math.PI / 180;
+    const v0 = (+ui.power.value) * 9.6;
+    const h = handPos();
+    state.banana = {
+      x: h.x, y: h.y,
+      vx: Math.cos(angle) * v0,
+      vy: -Math.sin(angle) * v0,
+      rot: 0,
+    };
+    state.trail = [];
+    state.tries++;
+    ui.triesTxt.textContent = state.tries;
+    ui.throwBtn.disabled = true;
+    state.gorilla.armUp = 1;
+    sndThrow();
+  }
+
+  function endThrow(hit) {
+    state.lastTrail = state.trail.slice();
+    state.trail = [];
+    state.banana = null;
+    if (hit) {
+      state.celebrating = true;
+      sndScore();
+      celebrate();
+      showBanner("🎯 ¡EMBOCASTE!", `Nivel ${state.level} superado`, 1600);
+      setTimeout(() => { state.level++; newLevel(); }, 1800);
+    } else {
+      sndMiss();
+      ui.throwBtn.disabled = false;
+    }
+  }
+
+  function updateBanana(dt) {
+    const b = state.banana;
+    if (!b) return;
+    b.vx += state.wind * dt;
+    b.vy += GRAVITY * dt;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    b.rot += dt * 14;
+    state.trail.push({ x: b.x, y: b.y });
+    if (state.trail.length > 240) state.trail.shift();
+
+    const k = state.basket;
+    const rimY = k.y - k.h;                 // boca del canasto
+    const rimHalf = k.w * 0.42;
+
+    // ¿Entró por la boca? (cayendo, dentro del ancho de la boca, cruzando el borde)
+    if (b.vy > 0 && Math.abs(b.x - k.x) < rimHalf && b.y > rimY - 6 && b.y < rimY + 26) {
+      puff(b.x, rimY, "#ffd54a", 26);
+      endThrow(true);
+      return;
+    }
+    // Golpe contra el cuerpo del canasto o el pedestal → falla
+    const hitBasketSide = b.y > rimY && b.y < k.y && Math.abs(b.x - k.x) < k.w * 0.55;
+    const hitPedestal = k.pedestalH > 0 && b.y > k.y && b.y < GROUND_Y && Math.abs(b.x - k.x) < 34;
+    if (hitBasketSide || hitPedestal) {
+      puff(b.x, b.y, "#c9d4ff", 14);
+      state.shake = 6;
+      endThrow(false);
+      return;
+    }
+    // Piso o fuera de pantalla
+    if (b.y > GROUND_Y) {
+      puff(b.x, GROUND_Y, "#8b7355", 16);
+      state.shake = 5;
+      endThrow(false);
+      return;
+    }
+    if (b.x > W + 120 || b.x < -120 || b.y > H + 200) {
+      endThrow(false);
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Partículas
+  // ------------------------------------------------------------------
+  function puff(x, y, color, n) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = rand(30, 190);
+      state.particles.push({
+        x, y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 60,
+        life: rand(0.4, 0.9),
+        t: 0,
+        r: rand(1.5, 4),
+        color,
+      });
+    }
+  }
+
+  function celebrate() {
+    const k = state.basket;
+    const colors = ["#ffd54a", "#ff9d2e", "#7cf29c", "#7cc4ff", "#ff7ce0", "#ffffff"];
+    for (let i = 0; i < 90; i++) {
+      const a = rand(-Math.PI * 0.9, -Math.PI * 0.1);
+      const sp = rand(120, 420);
+      state.particles.push({
+        x: k.x + rand(-20, 20),
+        y: k.y - k.h,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rand(0.8, 1.7),
+        t: 0,
+        r: rand(2, 5),
+        color: colors[(Math.random() * colors.length) | 0],
+      });
+    }
+  }
+
+  function updateParticles(dt) {
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      const p = state.particles[i];
+      p.t += dt;
+      if (p.t > p.life) { state.particles.splice(i, 1); continue; }
+      p.vy += GRAVITY * 0.6 * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Dibujo
+  // ------------------------------------------------------------------
+  function drawSky() {
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, "#0d1233");
+    grd.addColorStop(0.45, "#252a63");
+    grd.addColorStop(0.75, "#54408c");
+    grd.addColorStop(1, "#8a4a7d");
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+
+    // estrellas titilantes
+    for (const s of state.stars) {
+      const a = 0.35 + 0.65 * Math.abs(Math.sin(state.time * s.tw + s.ph));
+      ctx.globalAlpha = a;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // luna
+    const mx = W * 0.82, my = H * 0.16;
+    const glow = ctx.createRadialGradient(mx, my, 10, mx, my, 90);
+    glow.addColorStop(0, "rgba(255,250,220,.9)");
+    glow.addColorStop(0.3, "rgba(255,250,220,.25)");
+    glow.addColorStop(1, "rgba(255,250,220,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(mx, my, 90, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#fdf6d8";
+    ctx.beginPath(); ctx.arc(mx, my, 30, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(210,200,160,.5)";
+    ctx.beginPath(); ctx.arc(mx - 9, my - 6, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(mx + 8, my + 9, 4, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawBuildings() {
+    for (const b of state.buildings) {
+      const top = GROUND_Y - b.h;
+      ctx.fillStyle = b.color;
+      ctx.fillRect(b.x, top, b.w, b.h);
+      // brillo lateral sutil
+      ctx.fillStyle = "rgba(255,255,255,.05)";
+      ctx.fillRect(b.x, top, 6, b.h);
+      for (const w of b.windows) {
+        ctx.fillStyle = w.lit ? "rgba(255,214,110,.85)" : "rgba(10,14,30,.8)";
+        ctx.fillRect(b.x + w.x, top + w.y, 8, 11);
+      }
+    }
+  }
+
+  function drawGround() {
+    const grd = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+    grd.addColorStop(0, "#2e3d2b");
+    grd.addColorStop(1, "#141c12");
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+    ctx.fillStyle = "rgba(255,255,255,.08)";
+    ctx.fillRect(0, GROUND_Y, W, 3);
+  }
+
+  function drawGorilla() {
+    const g = state.gorilla;
+    const x = g.x, y = g.y;
+    const arm = g.armUp;                       // 0 = reposo, 1 = brazo arriba
+    ctx.save();
+    ctx.translate(x, y);
+
+    // sombra
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.beginPath(); ctx.ellipse(0, 2, 52, 10, 0, 0, Math.PI * 2); ctx.fill();
+
+    const fur = "#3a3f47", furDark = "#2b2f36", skin = "#8f8577";
+
+    // piernas
+    ctx.fillStyle = furDark;
+    ctx.beginPath(); ctx.ellipse(-22, -16, 16, 20, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(22, -16, 16, 20, 0, 0, Math.PI * 2); ctx.fill();
+
+    // torso
+    const torso = ctx.createRadialGradient(-10, -66, 8, 0, -52, 55);
+    torso.addColorStop(0, "#4a505a");
+    torso.addColorStop(1, fur);
+    ctx.fillStyle = torso;
+    ctx.beginPath(); ctx.ellipse(0, -52, 38, 42, 0, 0, Math.PI * 2); ctx.fill();
+
+    // pecho
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.ellipse(0, -46, 22, 26, 0, 0, Math.PI * 2); ctx.fill();
+
+    // brazo izquierdo (apoya en el piso)
+    ctx.strokeStyle = fur;
+    ctx.lineWidth = 17;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-28, -62);
+    ctx.quadraticCurveTo(-52, -40, -50, -6);
+    ctx.stroke();
+
+    // brazo derecho — el que lanza (interpola reposo → arriba)
+    const sx = 28, sy = -62;
+    const restEnd = { x: 50, y: -6 },   upEnd  = { x: 36, y: -94 };
+    const restCtl = { x: 52, y: -40 },  upCtl  = { x: 58, y: -84 };
+    const ex = restEnd.x + (upEnd.x - restEnd.x) * arm;
+    const ey = restEnd.y + (upEnd.y - restEnd.y) * arm;
+    const cx2 = restCtl.x + (upCtl.x - restCtl.x) * arm;
+    const cy2 = restCtl.y + (upCtl.y - restCtl.y) * arm;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.quadraticCurveTo(cx2, cy2, ex, ey);
+    ctx.stroke();
+    // mano
+    ctx.fillStyle = furDark;
+    ctx.beginPath(); ctx.arc(ex, ey, 9, 0, Math.PI * 2); ctx.fill();
+
+    // cabeza
+    ctx.fillStyle = fur;
+    ctx.beginPath(); ctx.ellipse(0, -100, 24, 21, 0, 0, Math.PI * 2); ctx.fill();
+    // cresta
+    ctx.beginPath(); ctx.ellipse(0, -116, 12, 8, 0, 0, Math.PI * 2); ctx.fill();
+    // cara
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.ellipse(2, -96, 15, 13, 0, 0, Math.PI * 2); ctx.fill();
+    // ojos
+    ctx.fillStyle = "#181a1e";
+    ctx.beginPath(); ctx.arc(-3, -101, 2.6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(8, -101, 2.6, 0, Math.PI * 2); ctx.fill();
+    // brillo en ojos
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(-2.2, -101.8, 0.9, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(8.8, -101.8, 0.9, 0, Math.PI * 2); ctx.fill();
+    // fosas nasales
+    ctx.fillStyle = "#181a1e";
+    ctx.beginPath(); ctx.arc(0, -92, 1.6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(6, -92, 1.6, 0, Math.PI * 2); ctx.fill();
+    // boca
+    ctx.strokeStyle = "#181a1e";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(3, -90, 6, 0.25 * Math.PI, 0.75 * Math.PI); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawBananaShape(x, y, rot, scale = 1) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.scale(scale, scale);
+    ctx.fillStyle = "#ffd23e";
+    ctx.beginPath();
+    ctx.arc(0, -6, 13, 0.15 * Math.PI, 0.85 * Math.PI);
+    ctx.arc(0, -13, 19, 0.78 * Math.PI, 0.22 * Math.PI, true);
+    ctx.closePath();
+    ctx.fill();
+    // puntas
+    ctx.fillStyle = "#8a6a12";
+    ctx.beginPath(); ctx.arc(-12, -2.5, 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(12, -2.5, 2.2, 0, Math.PI * 2); ctx.fill();
+    // brillo
+    ctx.strokeStyle = "rgba(255,255,255,.55)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, -8, 9, 0.3 * Math.PI, 0.7 * Math.PI); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBasket() {
+    const k = state.basket;
+    ctx.save();
+    ctx.translate(k.x, k.y);
+
+    // pedestal
+    if (k.pedestalH > 0) {
+      const pg = ctx.createLinearGradient(-30, 0, 30, 0);
+      pg.addColorStop(0, "#5d4a6e");
+      pg.addColorStop(0.5, "#7c6591");
+      pg.addColorStop(1, "#4a3a59");
+      ctx.fillStyle = pg;
+      ctx.fillRect(-30, 0, 60, k.pedestalH);
+      ctx.fillStyle = "rgba(255,255,255,.12)";
+      ctx.fillRect(-34, -2, 68, 6);
+      ctx.fillStyle = "rgba(0,0,0,.25)";
+      for (let yy = 18; yy < k.pedestalH; yy += 22) ctx.fillRect(-30, yy, 60, 2);
+    }
+
+    // sombra del canasto
+    ctx.fillStyle = "rgba(0,0,0,.3)";
+    ctx.beginPath(); ctx.ellipse(0, 2, k.w * 0.5, 7, 0, 0, Math.PI * 2); ctx.fill();
+
+    // cuerpo (trapecio con mimbre)
+    const topW = k.w, botW = k.w * 0.66, h = k.h;
+    const bg = ctx.createLinearGradient(0, -h, 0, 0);
+    bg.addColorStop(0, "#c98d3e");
+    bg.addColorStop(1, "#8a5a22");
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(-topW / 2, -h);
+    ctx.lineTo(topW / 2, -h);
+    ctx.lineTo(botW / 2, 0);
+    ctx.lineTo(-botW / 2, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // tejido horizontal
+    ctx.strokeStyle = "rgba(80,45,10,.5)";
+    ctx.lineWidth = 2;
+    for (let i = 1; i < 4; i++) {
+      const t = i / 4;
+      const yw = -h + t * h;
+      const hw = (topW + (botW - topW) * t) / 2;
+      ctx.beginPath();
+      ctx.moveTo(-hw, yw);
+      ctx.quadraticCurveTo(0, yw + 4, hw, yw);
+      ctx.stroke();
+    }
+    // tejido vertical
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * topW / 6, -h);
+      ctx.lineTo(i * botW / 6, 0);
+      ctx.stroke();
+    }
+
+    // boca (elipse del borde)
+    ctx.fillStyle = "#3d2508";
+    ctx.beginPath(); ctx.ellipse(0, -h, topW / 2, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#e8b05e";
+    ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.ellipse(0, -h, topW / 2, 10, 0, 0, Math.PI * 2); ctx.stroke();
+
+    // flechita indicadora flotante
+    const bob = Math.sin(state.time * 3) * 6;
+    ctx.fillStyle = "rgba(255,213,74,.9)";
+    ctx.beginPath();
+    ctx.moveTo(0, -h - 34 + bob);
+    ctx.lineTo(-9, -h - 50 + bob);
+    ctx.lineTo(9, -h - 50 + bob);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawAimPreview() {
+    if (state.banana || state.celebrating) return;
+    const angle = (+ui.angle.value) * Math.PI / 180;
+    const v0 = (+ui.power.value) * 9.6;
+    const h = handPos();
+    let px = h.x, py = h.y;
+    let vx = Math.cos(angle) * v0, vy = -Math.sin(angle) * v0;
+    ctx.fillStyle = "rgba(255,255,255,.5)";
+    const step = 0.055;
+    for (let i = 0; i < 11; i++) {
+      vx += state.wind * step;
+      vy += GRAVITY * step;
+      px += vx * step;
+      py += vy * step;
+      ctx.globalAlpha = 0.55 * (1 - i / 12);
+      ctx.beginPath();
+      ctx.arc(px, py, 3.4 - i * 0.18, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawTrail(trail, alpha) {
+    if (trail.length < 2) return;
+    ctx.save();
+    ctx.lineCap = "round";
+    for (let i = 1; i < trail.length; i++) {
+      const t = i / trail.length;
+      ctx.strokeStyle = `rgba(255, 214, 90, ${alpha * t * t})`;
+      ctx.lineWidth = 1 + 3.4 * t;
+      ctx.beginPath();
+      ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
+      ctx.lineTo(trail[i].x, trail[i].y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    for (const p of state.particles) {
+      const a = 1 - p.t / p.life;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * (0.5 + a * 0.5), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ------------------------------------------------------------------
+  // Bucle principal
+  // ------------------------------------------------------------------
+  let lastT = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.033, (now - lastT) / 1000);
+    lastT = now;
+    state.time += dt;
+
+    // física
+    updateBanana(dt);
+    updateParticles(dt);
+    if (state.gorilla.armUp > 0 && !state.banana) {
+      state.gorilla.armUp = Math.max(0, state.gorilla.armUp - dt * 3);
+    }
+    if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 22);
+
+    // render
+    ctx.save();
+    if (state.shake > 0.2) {
+      ctx.translate(rand(-state.shake, state.shake), rand(-state.shake, state.shake));
+    }
+    drawSky();
+    drawBuildings();
+    drawGround();
+    drawTrail(state.lastTrail, 0.16);
+    drawTrail(state.trail, 0.85);
+    drawBasket();
+    drawGorilla();
+    drawAimPreview();
+    if (state.banana) {
+      drawBananaShape(state.banana.x, state.banana.y, state.banana.rot, 1.25);
+    } else if (!state.celebrating) {
+      // banana en la mano, lista para lanzar
+      const h = handPos();
+      drawBananaShape(h.x, h.y - 4, -0.4, 0.8);
+    }
+    drawParticles();
+    ctx.restore();
+
+    requestAnimationFrame(frame);
+  }
+
+  // ------------------------------------------------------------------
+  // Controles
+  // ------------------------------------------------------------------
+  function syncSlider(input, out, suffix) {
+    const pct = (input.value - input.min) / (input.max - input.min) * 100;
+    input.style.setProperty("--fill", pct + "%");
+    out.textContent = input.value + suffix;
+  }
+  ui.angle.addEventListener("input", () => syncSlider(ui.angle, ui.angleOut, "°"));
+  ui.power.addEventListener("input", () => syncSlider(ui.power, ui.powerOut, ""));
+  ui.throwBtn.addEventListener("click", throwBanana);
+
+  window.addEventListener("keydown", (e) => {
+    const bump = (input, delta, out, suffix) => {
+      input.value = Math.min(+input.max, Math.max(+input.min, +input.value + delta));
+      syncSlider(input, out, suffix);
+    };
+    switch (e.key) {
+      case "ArrowUp":    bump(ui.angle,  1, ui.angleOut, "°"); e.preventDefault(); break;
+      case "ArrowDown":  bump(ui.angle, -1, ui.angleOut, "°"); e.preventDefault(); break;
+      case "ArrowRight": bump(ui.power,  1, ui.powerOut, "");  e.preventDefault(); break;
+      case "ArrowLeft":  bump(ui.power, -1, ui.powerOut, "");  e.preventDefault(); break;
+      case " ":          throwBanana(); e.preventDefault(); break;
+    }
+  });
+
+  // ------------------------------------------------------------------
+  // Arranque
+  // ------------------------------------------------------------------
+  window.__game = state;   // útil para depurar / testear
+  makeStars();
+  newLevel(true);
+  syncSlider(ui.angle, ui.angleOut, "°");
+  syncSlider(ui.power, ui.powerOut, "");
+  showBanner("🦍 GORILLA BANANA", "Elegí ángulo y fuerza… ¡y embocá la banana! 🍌", 2600);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
