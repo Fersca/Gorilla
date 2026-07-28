@@ -181,7 +181,9 @@
     max-width: 1100px;
     margin: 0 auto;
   }
-  .ctl { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .ctl { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .ctlTop { display: flex; justify-content: space-between; align-items: baseline; }
+  .ctlRow { display: flex; align-items: center; gap: 8px; }
   .ctl label {
     font-size: 11px;
     font-weight: 700;
@@ -190,12 +192,28 @@
     opacity: .75;
     white-space: nowrap;
   }
+  .stepBtn {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 10px;
+    background: rgba(255,255,255,.1);
+    color: var(--text);
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .stepBtn:active { background: rgba(255,213,74,.35); transform: scale(.92); }
   .ctl output {
     font-variant-numeric: tabular-nums;
     font-weight: 800;
-    font-size: 17px;
+    font-size: 16px;
     color: var(--accent);
-    min-width: 46px;
     text-align: right;
   }
   input[type="range"] {
@@ -262,7 +280,6 @@
     <div class="chip">🏆 Nivel <b id="levelTxt">1</b></div>
     <div class="chip">🎯 Intentos <b id="triesTxt">0</b></div>
     <button class="chip" id="scenBtn">🏙️ Ciudad</button>
-    <button class="chip" id="gestBtn">👆 Gestos ON</button>
     <button class="chip" id="rankBtn">🏆 Ranking</button>
   </div>
   <div class="hudGroup">
@@ -285,19 +302,28 @@
 
 <div id="controls">
   <div class="ctl">
-    <label for="angle">Ángulo</label>
-    <input type="range" id="angle" min="10" max="85" value="45" step="1">
-    <output id="angleOut">45°</output>
+    <div class="ctlTop"><label for="angle">Ángulo</label><output id="angleOut">45°</output></div>
+    <div class="ctlRow">
+      <button class="stepBtn" data-t="angle" data-d="-1">−</button>
+      <input type="range" id="angle" min="10" max="85" value="45" step="1">
+      <button class="stepBtn" data-t="angle" data-d="1">+</button>
+    </div>
   </div>
   <div class="ctl">
-    <label for="yaw">Giro</label>
-    <input type="range" id="yaw" min="-45" max="45" value="0" step="1">
-    <output id="yawOut">0°</output>
+    <div class="ctlTop"><label for="yaw">Giro</label><output id="yawOut">0°</output></div>
+    <div class="ctlRow">
+      <button class="stepBtn" data-t="yaw" data-d="-1">−</button>
+      <input type="range" id="yaw" min="-45" max="45" value="0" step="1">
+      <button class="stepBtn" data-t="yaw" data-d="1">+</button>
+    </div>
   </div>
   <div class="ctl">
-    <label for="power">Fuerza</label>
-    <input type="range" id="power" min="20" max="100" value="60" step="1">
-    <output id="powerOut">60</output>
+    <div class="ctlTop"><label for="power">Fuerza</label><output id="powerOut">60</output></div>
+    <div class="ctlRow">
+      <button class="stepBtn" data-t="power" data-d="-1">−</button>
+      <input type="range" id="power" min="20" max="100" value="60" step="1">
+      <button class="stepBtn" data-t="power" data-d="1">+</button>
+    </div>
   </div>
   <button id="throwBtn">🍌 ¡LANZAR!</button>
 </div>
@@ -389,7 +415,6 @@
     tries: 0,
     wind: 0,                     // aceleración horizontal (eje x) u/s²
     windEnabled: true,           // botón 💨 del HUD
-    gestureMode: true,           // apuntar arrastrando en pantalla
     banana: null,                // proyectil en vuelo {x,y,z,py,vx,vy,vz}
     celebrating: false,
     shake: 0,
@@ -422,7 +447,6 @@
     viewBtn: document.getElementById("viewBtn"),
     scenBtn: document.getElementById("scenBtn"),
     windBtn: document.getElementById("windBtn"),
-    gestBtn: document.getElementById("gestBtn"),
     rankBtn: document.getElementById("rankBtn"),
     rankOverlay: document.getElementById("rankOverlay"),
     rankTable: document.getElementById("rankTable"),
@@ -2576,54 +2600,31 @@
   ui.rankBtn.addEventListener("click", showRanking);
   ui.rankOverlay.addEventListener("click", () => ui.rankOverlay.classList.remove("show"));
 
-  // ------------------------------------------------ modo gestos (gomera)
-  // Arrastrás en la pantalla: vertical = ángulo, horizontal = giro,
-  // largo = fuerza. Los sliders se actualizan en vivo y al soltar dispara.
-  ui.gestBtn.addEventListener("click", () => {
-    state.gestureMode = !state.gestureMode;
-    ui.gestBtn.textContent = state.gestureMode ? "👆 Gestos ON" : "👆 Gestos OFF";
+  // ------------------------------------------------ botones −/+ de cada slider
+  const SLIDER_META = {
+    angle: [ui.angle, ui.angleOut, "°"],
+    yaw: [ui.yaw, ui.yawOut, "°"],
+    power: [ui.power, ui.powerOut, ""],
+  };
+  function bumpSlider(name, delta) {
+    const [input, out, suffix] = SLIDER_META[name];
+    input.value = Math.min(+input.max, Math.max(+input.min, +input.value + delta));
+    syncSlider(input, out, suffix);
+  }
+  document.querySelectorAll(".stepBtn").forEach((btn) => {
+    const t = btn.dataset.t, d = +btn.dataset.d;
+    let holdTO = null, holdIV = null;
+    const stop = () => { clearTimeout(holdTO); clearInterval(holdIV); holdTO = holdIV = null; };
+    btn.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      bumpSlider(t, d);
+      // mantener apretado repite
+      holdTO = setTimeout(() => { holdIV = setInterval(() => bumpSlider(t, d), 100); }, 380);
+    });
+    btn.addEventListener("pointerup", stop);
+    btn.addEventListener("pointercancel", stop);
+    btn.addEventListener("pointerleave", stop);
   });
-
-  const drag = { active: false, id: -1, sx: 0, sy: 0, yaw0: 0 };
-  function gestureStart(e) {
-    if (!state.gestureMode || !e.isPrimary) return;
-    if (state.banana || state.celebrating) return;
-    // con gestos activos, el dedo apunta (la cámara no rota; pinch/zoom sigue en OFF)
-    e.stopImmediatePropagation();
-    drag.active = true;
-    drag.id = e.pointerId;
-    drag.sx = e.clientX;
-    drag.sy = e.clientY;
-    drag.yaw0 = +ui.yaw.value;
-    controls.enabled = false;
-  }
-  function gestureMove(e) {
-    if (!drag.active || e.pointerId !== drag.id) return;
-    const w = window.innerWidth, h = window.innerHeight;
-    const pullX = e.clientX - drag.sx;
-    const pullY = e.clientY - drag.sy;
-    // tirás "hacia atrás y abajo" como una gomera
-    const angle = Math.round(Math.min(85, Math.max(10, 15 + (pullY / h) * 150)));
-    const yaw = Math.round(Math.min(45, Math.max(-45, drag.yaw0 - (pullX / w) * 140)));
-    const power = Math.round(Math.min(100, Math.max(20, 18 + Math.hypot(pullX, pullY) / (Math.min(w, h) * 0.5) * 82)));
-    ui.angle.value = angle;
-    ui.yaw.value = yaw;
-    ui.power.value = power;
-    syncSlider(ui.angle, ui.angleOut, "°");
-    syncSlider(ui.yaw, ui.yawOut, "°");
-    syncSlider(ui.power, ui.powerOut, "");
-  }
-  function gestureEnd(e) {
-    if (!drag.active || e.pointerId !== drag.id) return;
-    const len = Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy);
-    drag.active = false;
-    controls.enabled = true;
-    if (len > 30) throwBanana();   // un tap corto no dispara
-  }
-  renderer.domElement.addEventListener("pointerdown", gestureStart, { capture: true });
-  window.addEventListener("pointermove", gestureMove);
-  window.addEventListener("pointerup", gestureEnd);
-  window.addEventListener("pointercancel", gestureEnd);
 
   window.addEventListener("keydown", (e) => {
     const bump = (input, delta, out, suffix) => {

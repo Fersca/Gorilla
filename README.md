@@ -23,8 +23,7 @@ Abrí `index.html` en cualquier navegador (funciona directo desde el archivo, si
 
 El juego es una **PWA**: desde el navegador del celular usá *"Agregar a pantalla de inicio"* / *"Instalar app"* y queda un ícono del gorila en el escritorio. Abierto desde ahí corre en **pantalla completa**, sin barra de direcciones ni controles del navegador, y funciona **offline** (el service worker cachea todo).
 
-- **Ángulo**, **Giro** y **Fuerza**: con los sliders, o con el teclado (`↑`/`↓` ángulo, `Q`/`E` giro, `←`/`→` fuerza).
-- **Modo gestos** (botón `👆`, activado por defecto): arrastrá en la pantalla como una gomera — vertical = ángulo, horizontal = giro, largo del arrastre = fuerza. El personaje gira mientras apuntás, los sliders se actualizan en vivo y al soltar dispara (un tap corto no tira). Con gestos OFF, un dedo vuelve a orbitar la cámara.
+- **Ángulo**, **Giro** y **Fuerza**: con los sliders, con los botones **−/+** al lado de cada uno (mantenelos apretados para repetir), o con el teclado (`↑`/`↓` ángulo, `Q`/`E` giro, `←`/`→` fuerza).
 - **Ranking** (botón `🏆`): récords guardados en el dispositivo por escenario — mejor nivel, emboques, intentos y efectividad. Cuando superás tu mejor nivel, el festejo lo anuncia.
 - **Giro**: rota al gorila sobre su eje — el tiro es balística 3D real (x, y, z), así que además de la parábola tenés que apuntar bien en el plano horizontal, porque el canasto aparece a distintas profundidades.
 - **Lanzar**: botón `¡LANZAR!` o barra espaciadora.
