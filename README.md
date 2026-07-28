@@ -24,6 +24,8 @@ Abrí `index.html` en cualquier navegador (funciona directo desde el archivo, si
 El juego es una **PWA**: desde el navegador del celular usá *"Agregar a pantalla de inicio"* / *"Instalar app"* y queda un ícono del gorila en el escritorio. Abierto desde ahí corre en **pantalla completa**, sin barra de direcciones ni controles del navegador, y funciona **offline** (el service worker cachea todo).
 
 - **Ángulo**, **Giro** y **Fuerza**: con los sliders, o con el teclado (`↑`/`↓` ángulo, `Q`/`E` giro, `←`/`→` fuerza).
+- **Modo gestos** (botón `👆`, activado por defecto): arrastrá en la pantalla como una gomera — vertical = ángulo, horizontal = giro, largo del arrastre = fuerza. El personaje gira mientras apuntás, los sliders se actualizan en vivo y al soltar dispara (un tap corto no tira). Con gestos OFF, un dedo vuelve a orbitar la cámara.
+- **Ranking** (botón `🏆`): récords guardados en el dispositivo por escenario — mejor nivel, emboques, intentos y efectividad. Cuando superás tu mejor nivel, el festejo lo anuncia.
 - **Giro**: rota al gorila sobre su eje — el tiro es balística 3D real (x, y, z), así que además de la parábola tenés que apuntar bien en el plano horizontal, porque el canasto aparece a distintas profundidades.
 - **Lanzar**: botón `¡LANZAR!` o barra espaciadora.
 - **Cámara estilo Google Earth**: arrastrá para orbitar (verla desde arriba, de costado…), rueda del mouse o pinch para acercar, botón derecho o dos dedos para panear. El botón `📷 Vista` vuelve al encuadre inicial.
@@ -45,7 +47,8 @@ Con cada nivel, en todos los escenarios:
 
 - **three.js r147** (vendoreado en `vendor/three.min.js` + `vendor/OrbitControls.js`, no necesita internet) con sombras suaves, niebla atmosférica, tone mapping ACES y pixel ratio adaptado a la pantalla.
 - Cámara orbital (`OrbitControls`) con amortiguación, límites de zoom y tope para no meterse bajo el piso; cúpula de cielo con gradiente para que el fondo se vea desde cualquier ángulo.
-- Entornos procedurales por escenario: ciudad con ventanas iluminadas, selva con árboles/palmeras/helechos/luciérnagas, y estadio con tribunas en U y público de colores (puntos con vertex colors).
+- Entornos procedurales por escenario: ciudad con ventanas iluminadas, farolas encendidas y antenas con balizas rojas titilantes; selva con árboles/palmeras/helechos/luciérnagas, laguna espejada y rocas; estadio con tribunas en U, público de colores, banderines y marcador "GORILLA ARENA"; bosque medieval con fogata parpadeante y estandartes.
+- Personajes con detalles propios: orejas del gorila, bigote y placa del policía, vincha y camiseta 23 del jugador, pluma y carcaj del arquero.
 - Gorila, policía, jugador, canasto, tacho y aro modelados por código; banana, pelota y piedra girando en vuelo.
 - Física determinista: integración con subpasos fijos de 1/120 s y enceste decidido interpolando el cruce del plano del aro — el resultado del tiro es idéntico a cualquier framerate.
 - Física por integración de Euler con `dt` real por frame; guía de puntería con puntitos, estela aditiva del tiro, partículas de festejo, screen-shake al fallar.

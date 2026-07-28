@@ -109,6 +109,37 @@
   #banner.show h1 { transform: scale(1); }
   #banner p { font-size: clamp(13px, 3.5vw, 17px); opacity: .9; font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
 
+  /* ---------- ranking ---------- */
+  #rankOverlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 8;
+    background: rgba(5, 8, 20, .55);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+  }
+  #rankOverlay.show { display: flex; }
+  #rankCard {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 18px;
+    padding: 20px 26px;
+    min-width: 300px;
+    max-width: 92vw;
+    box-shadow: 0 24px 70px rgba(0,0,0,.6);
+  }
+  #rankCard h2 { font-size: 20px; margin-bottom: 14px; color: var(--accent); text-align: center; }
+  #rankCard table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  #rankCard th, #rankCard td { padding: 7px 10px; text-align: right; white-space: nowrap; }
+  #rankCard th:first-child, #rankCard td:first-child { text-align: left; }
+  #rankCard th { opacity: .6; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  #rankCard tr + tr td { border-top: 1px solid rgba(255,255,255,.08); }
+  #rankCard td b { color: var(--accent); }
+  .rankHint { margin-top: 12px; font-size: 11px; opacity: .5; text-align: center; }
+
   /* ---------- hint de rotación ---------- */
   #rotateHint {
     position: fixed;
@@ -231,6 +262,8 @@
     <div class="chip">🏆 Nivel <b id="levelTxt">1</b></div>
     <div class="chip">🎯 Intentos <b id="triesTxt">0</b></div>
     <button class="chip" id="scenBtn">🏙️ Ciudad</button>
+    <button class="chip" id="gestBtn">👆 Gestos ON</button>
+    <button class="chip" id="rankBtn">🏆 Ranking</button>
   </div>
   <div class="hudGroup">
     <button class="chip" id="windBtn">💨 ON</button>
@@ -240,6 +273,14 @@
 </div>
 
 <div id="banner"><h1 id="bannerTitle">¡GORILLA!</h1><p id="bannerSub">Emboca la banana en el canasto</p></div>
+
+<div id="rankOverlay">
+  <div id="rankCard">
+    <h2>🏆 Ranking</h2>
+    <table id="rankTable"></table>
+    <p class="rankHint">tocá en cualquier lado para cerrar</p>
+  </div>
+</div>
 <div id="rotateHint">📱 Girá el teléfono para ver mejor</div>
 
 <div id="controls">
@@ -348,6 +389,7 @@
     tries: 0,
     wind: 0,                     // aceleración horizontal (eje x) u/s²
     windEnabled: true,           // botón 💨 del HUD
+    gestureMode: true,           // apuntar arrastrando en pantalla
     banana: null,                // proyectil en vuelo {x,y,z,py,vx,vy,vz}
     celebrating: false,
     shake: 0,
@@ -358,6 +400,16 @@
     basket: { x: 20, z: 0, baseY: 0, rimY: CFG.basketH, pedestalH: 0, rimR: 3.1 },
   };
   const scen = () => SCENARIOS[state.scenKey];
+
+  // ------------------------------------------------ récords persistentes
+  let records = {};
+  try { records = JSON.parse(localStorage.getItem("gorilla-records") || "{}"); } catch (e) {}
+  function rec(key) {
+    return records[key] || (records[key] = { best: 0, hits: 0, throws: 0 });
+  }
+  function saveRecords() {
+    try { localStorage.setItem("gorilla-records", JSON.stringify(records)); } catch (e) {}
+  }
 
   const ui = {
     angle: document.getElementById("angle"),
@@ -370,6 +422,10 @@
     viewBtn: document.getElementById("viewBtn"),
     scenBtn: document.getElementById("scenBtn"),
     windBtn: document.getElementById("windBtn"),
+    gestBtn: document.getElementById("gestBtn"),
+    rankBtn: document.getElementById("rankBtn"),
+    rankOverlay: document.getElementById("rankOverlay"),
+    rankTable: document.getElementById("rankTable"),
     levelTxt: document.getElementById("levelTxt"),
     triesTxt: document.getElementById("triesTxt"),
     windChip: document.getElementById("windChip"),
@@ -683,6 +739,8 @@
       { z: -80, hMin: 20, hMax: 55, wMin: 14, wMax: 24, gap: [2, 7] },
     ];
     if (skipNearRow) rows.shift();   // la cancha necesita despejada la primera línea
+    group.userData.blinkers = [];
+    const mastMat = new THREE.MeshStandardMaterial({ color: 0x2a2f3a, roughness: 0.6 });
     for (const row of rows) {
       let x = -130;
       while (x < 130) {
@@ -702,7 +760,46 @@
         b.position.set(x + bw / 2, 0, row.z + rand(-3, 3));
         b.scale.set(bw, bh, rand(row.wMin, row.wMax));
         group.add(b);
+        // antenas con baliza roja en los edificios más altos
+        if (bh > 30 && Math.random() < 0.5) {
+          const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 6, 5), mastMat);
+          mast.position.set(b.position.x, bh + 3, b.position.z);
+          group.add(mast);
+          const beacon = new THREE.Mesh(
+            new THREE.SphereGeometry(0.45, 8, 6),
+            new THREE.MeshBasicMaterial({ color: 0xff3b30, toneMapped: false })
+          );
+          beacon.position.set(b.position.x, bh + 6.2, b.position.z);
+          group.add(beacon);
+          group.userData.blinkers.push(beacon);
+        }
         x += bw + rand(row.gap[0], row.gap[1]);
+      }
+    }
+    if (!skipNearRow) {
+      // farolas de vereda en primer plano
+      const lampGlow = glowTexture("rgba(255,220,150,.85)", "rgba(255,220,150,0)");
+      for (const lx of [-18, 10, 38]) {
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 9.5, 8), mastMat);
+        pole.position.set(lx, 4.75, 12);
+        pole.castShadow = true;
+        group.add(pole);
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(2, 0.25, 0.25), mastMat);
+        arm.position.set(lx - 0.9, 9.4, 12);
+        group.add(arm);
+        const bulb = new THREE.Mesh(
+          new THREE.SphereGeometry(0.42, 8, 6),
+          new THREE.MeshBasicMaterial({ color: 0xffe2a8, toneMapped: false })
+        );
+        bulb.position.set(lx - 1.8, 9.2, 12);
+        group.add(bulb);
+        const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: lampGlow, transparent: true, depthWrite: false }));
+        gl.scale.set(7, 7, 1);
+        gl.position.copy(bulb.position);
+        group.add(gl);
+        const pl = new THREE.PointLight(0xffdca0, 0.4, 30, 1.8);
+        pl.position.set(lx - 1.8, 8.6, 12);
+        group.add(pl);
       }
     }
   }
@@ -815,6 +912,27 @@
       group.add(plant);
     }
 
+    // laguna espejada a un costado
+    const lagoon = new THREE.Mesh(
+      new THREE.CircleGeometry(13, 26),
+      new THREE.MeshStandardMaterial({ color: 0x1d4a5e, roughness: 0.12, metalness: 0.7 })
+    );
+    lagoon.rotation.x = -Math.PI / 2;
+    lagoon.scale.set(1.5, 0.75, 1);
+    lagoon.position.set(-76, 0.05, 10);
+    group.add(lagoon);
+    // rocas
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x6d7178, roughness: 0.95, flatShading: true });
+    for (let i = 0; i < 7; i++) {
+      const x = rand(-120, 120), z = rand(-60, 24);
+      if (inPlayArea(x, z)) continue;
+      const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(rand(0.9, 2.4), 0), rockMat);
+      rock.position.set(x, 0.5, z);
+      rock.rotation.set(rand(0, 3), rand(0, 3), 0);
+      rock.castShadow = true;
+      group.add(rock);
+    }
+
     // luciérnagas
     const n = 60, pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
@@ -903,6 +1021,49 @@
     cg.setAttribute("color", new THREE.BufferAttribute(new Float32Array(crowdCol), 3));
     const crowd = new THREE.Points(cg, new THREE.PointsMaterial({ size: 1.5, vertexColors: true, sizeAttenuation: true }));
     group.add(crowd);
+
+    // marcador sobre la tribuna del fondo
+    const sb = document.createElement("canvas");
+    sb.width = 512; sb.height = 160;
+    const sg = sb.getContext("2d");
+    sg.fillStyle = "#10141c"; sg.fillRect(0, 0, 512, 160);
+    sg.strokeStyle = "#ffd54a"; sg.lineWidth = 8; sg.strokeRect(8, 8, 496, 144);
+    sg.fillStyle = "#ffd54a";
+    sg.font = "bold 56px sans-serif";
+    sg.textAlign = "center";
+    sg.fillText("GORILLA ARENA", 256, 74);
+    sg.fillStyle = "#f2f2f2";
+    sg.font = "bold 40px sans-serif";
+    sg.fillText("★ ★ ★", 256, 128);
+    const sbTex = new THREE.CanvasTexture(sb);
+    sbTex.encoding = THREE.sRGBEncoding;
+    const board = new THREE.Mesh(
+      new THREE.BoxGeometry(26, 8.5, 1.2),
+      [null, null, null, null,
+        new THREE.MeshBasicMaterial({ map: sbTex, toneMapped: false }),
+        new THREE.MeshStandardMaterial({ color: 0x10141c })
+      ].map(m => m || new THREE.MeshStandardMaterial({ color: 0x1a1f2a }))
+    );
+    board.position.set(0, 27, -62);
+    group.add(board);
+    for (const px of [-11, 11]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 8, 8), stepMat);
+      leg.position.set(px, 19, -62);
+      group.add(leg);
+    }
+
+    // banderines de colores cruzando sobre la cancha
+    const penMats = palette.slice(0, 6).map(c => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide, toneMapped: false }));
+    for (const [y0, z0] of [[26, -34], [24, -30]]) {
+      for (let x = -56; x <= 58; x += 5) {
+        const t = (x + 56) / 114;
+        const sag = Math.sin(t * Math.PI) * -3.5;
+        const pennant = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.6, 3), penMats[((x + 56) / 5 | 0) % penMats.length]);
+        pennant.rotation.x = Math.PI;
+        pennant.position.set(x, y0 + sag, z0);
+        group.add(pennant);
+      }
+    }
   }
 
   function buildCourt(group) {
@@ -1042,6 +1203,67 @@
       bush.scale.y = 0.65;
       group.add(bush);
     }
+
+    // fogata cerca del campamento del arquero
+    const fireX = -22, fireZ = 13;
+    for (let i = 0; i < 3; i++) {
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 3, 7), trunkMat);
+      log.position.set(fireX, 0.35, fireZ);
+      log.rotation.set(Math.PI / 2, 0, i * Math.PI / 3);
+      group.add(log);
+    }
+    const fireCone = new THREE.Mesh(
+      new THREE.ConeGeometry(0.9, 2.4, 8),
+      new THREE.MeshBasicMaterial({ color: 0xff7a1f, toneMapped: false })
+    );
+    fireCone.position.set(fireX, 1.5, fireZ);
+    group.add(fireCone);
+    const fireCore = new THREE.Mesh(
+      new THREE.ConeGeometry(0.45, 1.4, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffd54a, toneMapped: false })
+    );
+    fireCore.position.set(fireX, 1.2, fireZ);
+    group.add(fireCore);
+    const fireGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTexture("rgba(255,150,50,.7)", "rgba(255,150,50,0)"),
+      transparent: true, depthWrite: false,
+    }));
+    fireGlow.scale.set(9, 9, 1);
+    fireGlow.position.set(fireX, 2, fireZ);
+    group.add(fireGlow);
+    const fireLight = new THREE.PointLight(0xff9a3a, 1, 42, 1.8);
+    fireLight.position.set(fireX, 2.6, fireZ);
+    group.add(fireLight);
+    group.userData.fireLight = fireLight;
+    group.userData.fireCone = fireCone;
+
+    // estandartes medievales
+    for (const [bx, bz, colA, colB] of [[-8, -26, "#a03030", "#e8dcc0"], [32, -30, "#2e4a8a", "#e8dcc0"]]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 13, 7), trunkMat);
+      pole.position.set(bx, 6.5, bz);
+      pole.castShadow = true;
+      group.add(pole);
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 3.4, 6), trunkMat);
+      bar.rotation.z = Math.PI / 2;
+      bar.position.set(bx + 1.5, 12.6, bz);
+      group.add(bar);
+      const bc = document.createElement("canvas");
+      bc.width = 64; bc.height = 96;
+      const bg = bc.getContext("2d");
+      bg.fillStyle = colA; bg.fillRect(0, 0, 32, 96);
+      bg.fillStyle = colB; bg.fillRect(32, 0, 32, 96);
+      bg.fillStyle = "#e8c34a";
+      bg.beginPath(); bg.arc(32, 40, 13, 0, Math.PI * 2); bg.fill();
+      const bTex = new THREE.CanvasTexture(bc);
+      bTex.encoding = THREE.sRGBEncoding;
+      const banner = new THREE.Mesh(
+        new THREE.PlaneGeometry(3, 4.6),
+        new THREE.MeshStandardMaterial({ map: bTex, side: THREE.DoubleSide, roughness: 0.9 })
+      );
+      banner.position.set(bx + 1.5, 10.2, bz);
+      banner.castShadow = true;
+      group.add(banner);
+    }
   }
 
   let envGroup = null;
@@ -1080,6 +1302,11 @@
     const chest = sphere(1.9, skinMat, 1, 1.15, 0.55); chest.position.set(0, 4.4, 1.55); gorilla.add(chest);
     const head = sphere(1.65, furMat, 1, 0.95, 0.95); head.position.set(0, 8.35, 0.25); gorilla.add(head);
     const crest = sphere(0.85, furMat, 1.1, 0.75, 1); crest.position.set(0, 9.55, 0.1); gorilla.add(crest);
+    // orejas
+    for (const sx of [-1.75, 1.75]) {
+      const ear = sphere(0.5, furMat); ear.position.set(sx, 8.6, 0.1); gorilla.add(ear);
+      const earIn = sphere(0.24, skinMat); earIn.position.set(sx * 1.02, 8.6, 0.25); gorilla.add(earIn);
+    }
     const face = sphere(1.15, skinMat, 1, 0.85, 0.6); face.position.set(0, 8.1, 1.25); gorilla.add(face);
     const e1 = sphere(0.16, eyeMat); e1.position.set(-0.42, 8.55, 1.85); gorilla.add(e1);
     const e2 = e1.clone(); e2.position.x = 0.42; gorilla.add(e2);
@@ -1138,6 +1365,29 @@
     const hair = sphere(1.02, pHair, 1.02, 0.62, 1.02);
     hair.position.set(0, 10.95, -0.05);
     player.add(hair);
+    // vincha
+    const band = new THREE.Mesh(
+      new THREE.TorusGeometry(1.0, 0.14, 8, 18),
+      new THREE.MeshStandardMaterial({ color: 0xe04b3a, roughness: 0.8 })
+    );
+    band.rotation.x = Math.PI / 2.3;
+    band.position.set(0, 10.72, 0.1);
+    player.add(band);
+    // número en la camiseta
+    const nc = document.createElement("canvas");
+    nc.width = nc.height = 64;
+    const ng = nc.getContext("2d");
+    ng.fillStyle = "#fff";
+    ng.font = "bold 44px sans-serif";
+    ng.textAlign = "center";
+    ng.fillText("23", 32, 48);
+    const nTex = new THREE.CanvasTexture(nc);
+    const num = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.3, 1.3),
+      new THREE.MeshBasicMaterial({ map: nTex, transparent: true })
+    );
+    num.position.set(0, 7.7, 1.32);
+    player.add(num);
     // brazo izquierdo relajado
     const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 3.2, 6, 12), pSkin);
     armL.geometry.translate(0, -1.9, 0);
@@ -1206,6 +1456,13 @@
     const visor = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.12, 0.95), cBlack);
     visor.position.set(0, 10.98, 1.15);
     police.add(visor);
+    // bigote y hebilla dorada
+    const stache = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.18, 0.16), cBlack);
+    stache.position.set(0, 10.22, 1.06);
+    police.add(stache);
+    const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.34, 0.12), cGold);
+    buckle.position.set(0, 5.9, 1.32);
+    police.add(buckle);
     // brazo izquierdo relajado
     const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 3.2, 6, 12), cShirt);
     armL.geometry.translate(0, -1.9, 0);
@@ -1270,6 +1527,22 @@
     hoodRim.position.set(0, 10.7, 0.1);
     hoodRim.rotation.x = Math.PI / 2.4;
     archer.add(hoodRim);
+    // pluma roja en la capucha
+    const feather = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 8, 6),
+      new THREE.MeshStandardMaterial({ color: 0xe04b3a, roughness: 0.8, side: THREE.DoubleSide })
+    );
+    feather.scale.set(0.16, 0.85, 0.35);
+    feather.position.set(0.75, 12.3, -0.3);
+    feather.rotation.z = -0.45;
+    archer.add(feather);
+    // hebilla dorada
+    const aBuckle = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.34, 0.12),
+      new THREE.MeshStandardMaterial({ color: 0xe8c34a, roughness: 0.4, metalness: 0.4 })
+    );
+    aBuckle.position.set(0, 5.9, 1.34);
+    archer.add(aBuckle);
     // carcaj a la espalda con puntas de flecha
     const quiver = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.34, 2.8, 10), aLeather);
     quiver.position.set(-0.7, 8.2, -1.35);
@@ -1907,9 +2180,9 @@
       k.baseY = 0;
       k.cy = BULL.cy;
       k.rimY = BULL.moundH;          // para la flecha indicadora
-      // el blanco aparece cada vez más girado: la zona útil se achica
-      k.rot = state.level === 1 ? 0
-            : (Math.random() < 0.5 ? -1 : 1) * rand(0.12, Math.min(0.7, 0.08 + state.level * 0.09));
+      // inclinación base hacia la cámara (se ve el disco) + giro extra por nivel
+      k.rot = 0.3 + (state.level === 1 ? 0
+            : (Math.random() < 0.5 ? -1 : 1) * rand(0.12, Math.min(0.65, 0.08 + state.level * 0.09)));
       pedestal.visible = pedestalCap.visible = false;
       bullseyeGroup.position.set(k.x, 0, k.z);
       bullseyeGroup.rotation.y = k.rot;
@@ -2030,6 +2303,8 @@
     };
     state.tries++;
     ui.triesTxt.textContent = state.tries;
+    rec(state.scenKey).throws++;
+    saveRecords();
     ui.throwBtn.disabled = true;
     state.armUp = 1;
     handItem().visible = false;
@@ -2043,13 +2318,18 @@
     bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = false;
     if (hit) {
       state.celebrating = true;
+      const r = rec(state.scenKey);
+      r.hits++;
+      const isRecord = state.level > r.best;
+      if (isRecord) r.best = state.level;
+      saveRecords();
       sndScore(scen().targetMesh);
       const k = state.basket;
       spawnParticles(k.x, k.rimY + 1, k.z, [0xffd54a, 0xff9d2e, 0x7cf29c, 0x7cc4ff, 0xff7ce0, 0xffffff], 130, [15, 55], 20);
       const hitTitle = scen().target === "hoop" ? "🏀 ¡ENCESTASTE!"
                      : scen().target === "bullseye" ? "🏹 ¡EN EL BLANCO!"
                      : "🎯 ¡EMBOCASTE!";
-      showBanner(hitTitle, `Nivel ${state.level} superado`, 1600);
+      showBanner(hitTitle, isRecord ? `Nivel ${state.level} superado · 🏆 ¡récord nuevo!` : `Nivel ${state.level} superado`, 1600);
       setTimeout(() => { state.level++; newLevel(); }, 1900);
     } else {
       sndMiss();
@@ -2230,6 +2510,17 @@
     if (envGroup) {
       const ff = envGroup.getObjectByName("fireflies");
       if (ff) ff.material.opacity = 0.55 + 0.4 * Math.sin(state.time * 2.3);
+      // balizas rojas de las antenas
+      const bl = envGroup.userData.blinkers;
+      if (bl) for (let i = 0; i < bl.length; i++) bl[i].visible = Math.sin(state.time * 2.4 + i * 1.9) > -0.15;
+      // fuego de la fogata
+      const fl = envGroup.userData.fireLight;
+      if (fl) fl.intensity = 0.8 + 0.35 * Math.sin(state.time * 9) + Math.random() * 0.25;
+      const fc = envGroup.userData.fireCone;
+      if (fc) {
+        const s = 0.9 + 0.16 * Math.sin(state.time * 11) + 0.06 * Math.random();
+        fc.scale.set(s, 1 + 0.22 * Math.random(), s);
+      }
     }
 
     // el lanzador rota suavemente hacia el giro elegido
@@ -2267,6 +2558,72 @@
     ui.windBtn.textContent = state.windEnabled ? "💨 ON" : "💨 OFF";
     setWind();
   });
+
+  // ------------------------------------------------ ranking
+  function showRanking() {
+    const rows = Object.keys(SCENARIOS).map(key => {
+      const sc = SCENARIOS[key], r = rec(key);
+      const pct = r.throws ? Math.round(r.hits / r.throws * 100) : 0;
+      return { sc, r, pct };
+    }).sort((a, b) => b.r.best - a.r.best);
+    ui.rankTable.innerHTML =
+      "<tr><th>Escenario</th><th>Mejor nivel</th><th>Emboques</th><th>Intentos</th><th>Efect.</th></tr>" +
+      rows.map(({ sc, r, pct }) =>
+        `<tr><td>${sc.emoji} ${sc.name}</td><td><b>${r.best || "—"}</b></td><td>${r.hits}</td><td>${r.throws}</td><td>${r.throws ? pct + "%" : "—"}</td></tr>`
+      ).join("");
+    ui.rankOverlay.classList.add("show");
+  }
+  ui.rankBtn.addEventListener("click", showRanking);
+  ui.rankOverlay.addEventListener("click", () => ui.rankOverlay.classList.remove("show"));
+
+  // ------------------------------------------------ modo gestos (gomera)
+  // Arrastrás en la pantalla: vertical = ángulo, horizontal = giro,
+  // largo = fuerza. Los sliders se actualizan en vivo y al soltar dispara.
+  ui.gestBtn.addEventListener("click", () => {
+    state.gestureMode = !state.gestureMode;
+    ui.gestBtn.textContent = state.gestureMode ? "👆 Gestos ON" : "👆 Gestos OFF";
+  });
+
+  const drag = { active: false, id: -1, sx: 0, sy: 0, yaw0: 0 };
+  function gestureStart(e) {
+    if (!state.gestureMode || !e.isPrimary) return;
+    if (state.banana || state.celebrating) return;
+    // con gestos activos, el dedo apunta (la cámara no rota; pinch/zoom sigue en OFF)
+    e.stopImmediatePropagation();
+    drag.active = true;
+    drag.id = e.pointerId;
+    drag.sx = e.clientX;
+    drag.sy = e.clientY;
+    drag.yaw0 = +ui.yaw.value;
+    controls.enabled = false;
+  }
+  function gestureMove(e) {
+    if (!drag.active || e.pointerId !== drag.id) return;
+    const w = window.innerWidth, h = window.innerHeight;
+    const pullX = e.clientX - drag.sx;
+    const pullY = e.clientY - drag.sy;
+    // tirás "hacia atrás y abajo" como una gomera
+    const angle = Math.round(Math.min(85, Math.max(10, 15 + (pullY / h) * 150)));
+    const yaw = Math.round(Math.min(45, Math.max(-45, drag.yaw0 - (pullX / w) * 140)));
+    const power = Math.round(Math.min(100, Math.max(20, 18 + Math.hypot(pullX, pullY) / (Math.min(w, h) * 0.5) * 82)));
+    ui.angle.value = angle;
+    ui.yaw.value = yaw;
+    ui.power.value = power;
+    syncSlider(ui.angle, ui.angleOut, "°");
+    syncSlider(ui.yaw, ui.yawOut, "°");
+    syncSlider(ui.power, ui.powerOut, "");
+  }
+  function gestureEnd(e) {
+    if (!drag.active || e.pointerId !== drag.id) return;
+    const len = Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy);
+    drag.active = false;
+    controls.enabled = true;
+    if (len > 30) throwBanana();   // un tap corto no dispara
+  }
+  renderer.domElement.addEventListener("pointerdown", gestureStart, { capture: true });
+  window.addEventListener("pointermove", gestureMove);
+  window.addEventListener("pointerup", gestureEnd);
+  window.addEventListener("pointercancel", gestureEnd);
 
   window.addEventListener("keydown", (e) => {
     const bump = (input, delta, out, suffix) => {
