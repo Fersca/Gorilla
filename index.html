@@ -10,8 +10,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Gorilla">
-<title>🦍 Gorilla Banana 3D — homenaje a GORILLA.BAS</title>
+<meta name="apple-mobile-web-app-title" content="Apunto y Tiro">
+<title>🎯 Apunto y Tiro — homenaje a GORILLA.BAS</title>
 <style>
   :root {
     --panel-bg: rgba(13, 17, 36, 0.66);
@@ -1751,9 +1751,9 @@
     const dg = dc.getContext("2d");
     dg.fillStyle = "#1a1f2a"; dg.fillRect(0, 0, 256, 64);
     dg.fillStyle = "#ffd54a";
-    dg.font = "bold 34px sans-serif";
+    dg.font = "bold 30px sans-serif";
     dg.textAlign = "center";
-    dg.fillText("GORILLA", 128, 44);
+    dg.fillText("APUNTO Y TIRO", 128, 42);
     const deskTex = new THREE.CanvasTexture(dc);
     deskTex.encoding = THREE.sRGBEncoding;
     const desk = new THREE.Mesh(
@@ -4306,7 +4306,7 @@
           sg.fillStyle = "#ffd54a";
           sg.font = "bold 52px sans-serif";
           sg.textAlign = "center";
-          sg.fillText("GORILLA ARENA", 256, 70);
+          sg.fillText("APUNTO Y TIRO", 256, 70);
           sg.fillStyle = "#f2f2f2";
           sg.font = "bold 38px sans-serif";
           sg.fillText(txt, 256, 126);
@@ -4518,7 +4518,7 @@
   syncSlider(ui.angle, ui.angleOut, "°");
   syncSlider(ui.yaw, ui.yawOut, "°");
   syncSlider(ui.power, ui.powerOut, "");
-  showBanner("🦍 GORILLA BANANA 3D", scen().sub, 2600);
+  showBanner("🎯 APUNTO Y TIRO", scen().sub, 2600);
   checkOrientation();
   frame();
 

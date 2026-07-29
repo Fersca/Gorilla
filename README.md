@@ -1,4 +1,4 @@
-# 🦍 Gorilla Banana 3D
+# 🎯 Apunto y Tiro
 
 Un homenaje moderno al clásico **GORILLA.BAS** de QBasic, hecho en HTML + JavaScript con **three.js** (renderizado 3D con WebGL).
 

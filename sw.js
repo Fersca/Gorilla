@@ -1,5 +1,5 @@
 // Service worker: habilita la instalación como app y el juego offline.
-const CACHE = "gorilla-v1";
+const CACHE = "apunto-y-tiro-v2";
 const ASSETS = [
   "./",
   "./index.html",

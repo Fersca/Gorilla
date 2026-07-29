@@ -1,7 +1,7 @@
 {
-  "name": "Gorilla Banana 3D",
-  "short_name": "Gorilla",
-  "description": "Homenaje 3D al clásico GORILLA.BAS: embocá la banana eligiendo ángulo, giro y fuerza. Tres escenarios: ciudad, selva y básquet.",
+  "name": "Apunto y Tiro",
+  "short_name": "Apunto y Tiro",
+  "description": "Homenaje 3D al clásico GORILLA.BAS: elegí ángulo, giro y fuerza para embocar en 6 escenarios — gorila, selva, básquet, arquero medieval, fútbol y salto en auto.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
