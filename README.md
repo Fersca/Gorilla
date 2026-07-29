@@ -6,6 +6,14 @@ Un homenaje moderno al clásico **GORILLA.BAS** de QBasic, hecho en HTML + JavaS
 
 > Construido por **Fernando Scasserra** y su IA, para **Julián** y **Simón**, en Tandil ❤️
 
+## Capturas
+
+| | |
+|---|---|
+| ![Ciudad: el policía y el tacho](screenshots/ciudad.png) 🏙️ **Ciudad** | ![Selva: el gorila y el canasto](screenshots/selva.png) 🌴 **Selva** |
+| ![Básquet: estadio y aro](screenshots/basquet.png) 🏀 **Básquet** | ![Arquero: bosque medieval y blanco](screenshots/arquero.png) 🏹 **Arquero** |
+| ![Fútbol: tiro libre con barrera y arquero](screenshots/futbol.png) ⚽ **Fútbol** | ![Auto: rampa y aro en el desierto](screenshots/auto.png) 🚗 **Auto** |
+
 ## Escenarios
 
 El botón de escenario del HUD abre un **selector con la lista completa** para saltar directo a cualquiera de los seis:
