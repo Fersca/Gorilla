@@ -119,8 +119,10 @@
 
   /* ---------- ranking ---------- */
   #scenCard { min-width: 260px; }
-  #scenList { display: flex; flex-direction: column; gap: 8px; }
-  #scenList button {
+  #choiceCard { max-width: 340px; }
+  #choiceList button small { display: block; font-weight: 500; font-size: 12px; opacity: .65; margin-top: 3px; }
+  #scenList, #choiceList { display: flex; flex-direction: column; gap: 8px; }
+  #scenList button, #choiceList button {
     font: inherit;
     font-size: 16px;
     font-weight: 700;
@@ -133,7 +135,7 @@
     cursor: pointer;
     touch-action: manipulation;
   }
-  #scenList button:active { transform: scale(.97); }
+  #scenList button:active, #choiceList button:active { transform: scale(.97); }
   #scenList button.current {
     background: rgba(255,213,74,.18);
     border-color: rgba(255,213,74,.5);
@@ -146,7 +148,7 @@
     max-width: 300px;
   }
   .aboutMsg b { color: var(--accent); }
-  #rankOverlay, #installOverlay, #scenOverlay, #aboutOverlay {
+  #rankOverlay, #installOverlay, #scenOverlay, #aboutOverlay, #choiceOverlay {
     position: fixed;
     inset: 0;
     display: none;
@@ -157,10 +159,10 @@
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
   }
-  #rankOverlay.show, #installOverlay.show, #scenOverlay.show, #aboutOverlay.show { display: flex; }
+  #rankOverlay.show, #installOverlay.show, #scenOverlay.show, #aboutOverlay.show, #choiceOverlay.show { display: flex; }
   #installCard p { font-size: 14px; line-height: 1.55; max-width: 300px; }
   #installCard b { color: var(--accent); }
-  #installCard, #rankCard, #scenCard, #aboutCard {
+  #installCard, #rankCard, #scenCard, #aboutCard, #choiceCard {
     background: var(--panel-bg);
     border: 1px solid var(--panel-border);
     border-radius: 18px;
@@ -169,7 +171,7 @@
     max-width: 92vw;
     box-shadow: 0 24px 70px rgba(0,0,0,.6);
   }
-  #rankCard h2, #installCard h2, #scenCard h2, #aboutCard h2 { font-size: 20px; margin-bottom: 14px; color: var(--accent); text-align: center; }
+  #rankCard h2, #installCard h2, #scenCard h2, #aboutCard h2, #choiceCard h2 { font-size: 20px; margin-bottom: 14px; color: var(--accent); text-align: center; }
   #rankCard table { width: 100%; border-collapse: collapse; font-size: 14px; }
   #rankCard th, #rankCard td { padding: 7px 10px; text-align: right; white-space: nowrap; }
   #rankCard th:first-child, #rankCard td:first-child { text-align: left; }
@@ -373,6 +375,17 @@
     <h2>📲 Instalar la app</h2>
     <p id="installMsg"></p>
     <p class="rankHint">tocá en cualquier lado para cerrar</p>
+  </div>
+</div>
+
+<div id="choiceOverlay">
+  <div id="choiceCard">
+    <h2>📲 ¿Cómo la querés instalar?</h2>
+    <div id="choiceList">
+      <button id="pwaChoice">🌐 Web App (PWA) — recomendada<br><small>Se instala desde el navegador, liviana y siempre actualizada</small></button>
+      <button id="apkChoice">🤖 App nativa de Android (APK)<br><small>Descarga el APK compilado para instalarlo como app del teléfono</small></button>
+    </div>
+    <p class="rankHint">tocá afuera para cerrar</p>
   </div>
 </div>
 
@@ -4530,19 +4543,50 @@
     || window.matchMedia("(display-mode: fullscreen)").matches;
   if (isStandalone) ui.installBtn.style.display = "none";   // ya está instalada
   window.addEventListener("appinstalled", () => { ui.installBtn.style.display = "none"; });
-  ui.installBtn.addEventListener("click", async () => {
+  const APK_URL = "https://github.com/Fersca/Gorilla/releases/download/app-latest/apunto-y-tiro.apk";
+  const choiceOverlay = document.getElementById("choiceOverlay");
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/i.test(navigator.userAgent);
+
+  async function installPWA() {
     if (installPrompt) {
       installPrompt.prompt();
       try { await installPrompt.userChoice; } catch (e) {}
       installPrompt = null;
       return;
     }
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-      || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     ui.installMsg.innerHTML = isIOS
-      ? "En iPhone/iPad: tocá el botón <b>Compartir</b> de Safari (el cuadradito con la flecha ↑) y elegí <b>“Agregar a pantalla de inicio”</b>. Te queda el ícono del gorila 🦍 y abre en pantalla completa."
-      : "Abrí el menú <b>⋮</b> (o <b>≡</b>) de tu navegador y elegí <b>“Instalar app”</b> o <b>“Agregar a pantalla principal”</b>. Te queda el ícono del gorila 🦍 y abre en pantalla completa.";
+      ? "En iPhone/iPad: tocá el botón <b>Compartir</b> de Safari (el cuadradito con la flecha ↑) y elegí <b>“Agregar a pantalla de inicio”</b>. Te queda el ícono del juego y abre en pantalla completa."
+      : "Abrí el menú <b>⋮</b> (o <b>≡</b>) de tu navegador y elegí <b>“Instalar app”</b> o <b>“Agregar a pantalla principal”</b>. Te queda el ícono del juego y abre en pantalla completa.";
     ui.installOverlay.classList.add("show");
+  }
+
+  function installNative() {
+    if (isIOS) {
+      ui.installMsg.innerHTML = "En iPhone/iPad no se pueden instalar APKs de Android — Apple solo permite apps desde el App Store. Usá la opción <b>PWA</b>: es igual de completa y abre en pantalla completa.";
+      ui.installOverlay.classList.add("show");
+      return;
+    }
+    // Android (o escritorio): descarga directa del APK compilado
+    window.location.href = APK_URL;
+    ui.installMsg.innerHTML = isAndroid
+      ? "Descargando <b>apunto-y-tiro.apk</b>… Cuando termine, abrilo desde las notificaciones o Descargas. Si Android te lo pide, permití <b>“instalar apps desconocidas”</b> para tu navegador (es normal en apps fuera de Play Store)."
+      : "Descargando <b>apunto-y-tiro.apk</b> — es la app de <b>Android</b>: pasala a tu teléfono para instalarla.";
+    ui.installOverlay.classList.add("show");
+  }
+
+  ui.installBtn.addEventListener("click", () => choiceOverlay.classList.add("show"));
+  document.getElementById("pwaChoice").addEventListener("click", () => {
+    choiceOverlay.classList.remove("show");
+    installPWA();
+  });
+  document.getElementById("apkChoice").addEventListener("click", () => {
+    choiceOverlay.classList.remove("show");
+    installNative();
+  });
+  choiceOverlay.addEventListener("click", (e) => {
+    if (e.target === choiceOverlay) choiceOverlay.classList.remove("show");
   });
   ui.installOverlay.addEventListener("click", () => ui.installOverlay.classList.remove("show"));
 

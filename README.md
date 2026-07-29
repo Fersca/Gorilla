@@ -50,13 +50,12 @@ Con cada nivel, en todos los escenarios:
 
 ## Instalar como app 📲
 
-El juego es una **PWA**:
+El botón **📲 Instalar** del HUD pregunta **cómo la querés instalar**:
 
-- El botón **📲 Instalar** del HUD dispara la instalación nativa donde existe (Chrome/Android/Edge) y en el resto (iPhone/Safari, Firefox…) muestra las instrucciones del navegador correspondiente.
-- Instalada queda en el escritorio con el **ícono cartoon** (gorila, arquero y futbolista), abre en **pantalla completa** sin controles del navegador y **funciona offline** (el service worker precachea todo).
-- Desde el navegador, el botón **⛶ Pantalla** pone el juego en pantalla completa sin instalar nada.
+- **🌐 Web App (PWA)** — recomendada: instalación nativa donde existe (Chrome/Android/Edge) o instrucciones del navegador (iPhone/Safari, Firefox…). Queda en el escritorio con el **ícono cartoon**, abre en **pantalla completa** y **funciona offline** (service worker).
+- **🤖 App nativa de Android (APK)** — descarga el APK empaquetado con **Capacitor** y compilado automáticamente por GitHub Actions en cada push (release [`app-latest`](https://github.com/Fersca/Gorilla/releases/tag/app-latest)). Al instalarlo, Android puede pedir permitir *"instalar apps desconocidas"* (normal fuera de Play Store). En iPhone no hay equivalente — Apple solo permite apps vía App Store, así que ahí la vía es la PWA.
 
-También podés abrir `index.html` directo desde el archivo, sin servidor ni build.
+Desde el navegador, el botón **⛶ Pantalla** pone el juego en pantalla completa sin instalar nada. También podés abrir `index.html` directo desde el archivo, sin servidor ni build.
 
 ## Detalles técnicos
 
@@ -77,7 +76,17 @@ manifest.webmanifest  metadata de la PWA
 sw.js                 service worker (instalación + offline)
 icons/                íconos de la app (192/512/maskable/apple)
 vendor/               three.js r147 + OrbitControls (vendoreados)
-.github/workflows/    deploy automático a GitHub Pages
+android/              proyecto nativo de Android (Capacitor)
+capacitor.config.json configuración de Capacitor (appId, webDir)
+scripts/              build-www.js (arma www/ para Capacitor) y
+                      gen-android-icons.js (íconos/splash desde icon-512)
+screenshots/          capturas para el README
+.github/workflows/    CI: deploy a Pages + build del APK
 ```
 
-Cada push a la rama de desarrollo dispara el workflow **Deploy a GitHub Pages**, que publica el contenido en la rama `gh-pages`; GitHub Pages sirve desde ahí. No hay que tocar `gh-pages` a mano.
+Cada push a la rama de desarrollo dispara **dos workflows**:
+
+1. **Deploy a GitHub Pages** — publica el juego web en la rama `gh-pages` (no hay que tocarla a mano).
+2. **Build Android APK** — `npm run sync:android` (arma `www/` y sincroniza Capacitor), compila con Gradle en el runner (que trae el SDK de Android) y publica `apunto-y-tiro.apk` en el release **`app-latest`**, que es lo que descarga el botón "App nativa" del sitio.
+
+Para desarrollar la app nativa localmente hace falta Android Studio/SDK: `npm install && npm run sync:android` y abrir `android/` en Android Studio.

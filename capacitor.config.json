@@ -1,0 +1,11 @@
+{
+  "appId": "ar.tandil.apuntoytiro",
+  "appName": "Apunto y Tiro",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1,0 +1,59 @@
+name: Build Android APK
+
+# Compila la app nativa de Android con Capacitor y publica el APK
+# como release "app-latest" para que el sitio lo ofrezca a descargar.
+on:
+  push:
+    branches:
+      - main
+      - master
+      - claude/gorila-banana-game-7db9ll
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-android
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Instalar dependencias y sincronizar Capacitor
+        run: |
+          npm ci
+          npm run sync:android
+
+      - name: Compilar APK (debug, firmado con la clave de debug)
+        run: |
+          chmod +x android/gradlew
+          cd android && ./gradlew assembleDebug --no-daemon
+
+      - name: Renombrar APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk apunto-y-tiro.apk
+
+      - name: Publicar release app-latest
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: app-latest
+          name: "Apunto y Tiro — APK de Android"
+          body: |
+            APK de Android compilado automáticamente a partir del último código.
+
+            **Cómo instalarlo:** descargá el archivo en tu teléfono, abrilo y,
+            si Android te lo pide, permití "instalar apps desconocidas" para tu navegador.
+          files: apunto-y-tiro.apk
