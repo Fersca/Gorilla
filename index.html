@@ -118,7 +118,28 @@
   #banner p { font-size: clamp(13px, 3.5vw, 17px); opacity: .9; font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
 
   /* ---------- ranking ---------- */
-  #rankOverlay, #installOverlay {
+  #scenCard { min-width: 260px; }
+  #scenList { display: flex; flex-direction: column; gap: 8px; }
+  #scenList button {
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 12px;
+    padding: 11px 18px;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  #scenList button:active { transform: scale(.97); }
+  #scenList button.current {
+    background: rgba(255,213,74,.18);
+    border-color: rgba(255,213,74,.5);
+    color: var(--accent);
+  }
+  #rankOverlay, #installOverlay, #scenOverlay {
     position: fixed;
     inset: 0;
     display: none;
@@ -129,10 +150,10 @@
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
   }
-  #rankOverlay.show, #installOverlay.show { display: flex; }
+  #rankOverlay.show, #installOverlay.show, #scenOverlay.show { display: flex; }
   #installCard p { font-size: 14px; line-height: 1.55; max-width: 300px; }
   #installCard b { color: var(--accent); }
-  #installCard, #rankCard {
+  #installCard, #rankCard, #scenCard {
     background: var(--panel-bg);
     border: 1px solid var(--panel-border);
     border-radius: 18px;
@@ -141,7 +162,7 @@
     max-width: 92vw;
     box-shadow: 0 24px 70px rgba(0,0,0,.6);
   }
-  #rankCard h2, #installCard h2 { font-size: 20px; margin-bottom: 14px; color: var(--accent); text-align: center; }
+  #rankCard h2, #installCard h2, #scenCard h2 { font-size: 20px; margin-bottom: 14px; color: var(--accent); text-align: center; }
   #rankCard table { width: 100%; border-collapse: collapse; font-size: 14px; }
   #rankCard th, #rankCard td { padding: 7px 10px; text-align: right; white-space: nowrap; }
   #rankCard th:first-child, #rankCard td:first-child { text-align: left; }
@@ -346,6 +367,13 @@
     <p class="rankHint">tocá en cualquier lado para cerrar</p>
   </div>
 </div>
+
+<div id="scenOverlay">
+  <div id="scenCard">
+    <h2>Elegí escenario</h2>
+    <div id="scenList"></div>
+  </div>
+</div>
 <div id="rotateHint">📱 Girá el teléfono para ver mejor</div>
 
 <div id="controls">
@@ -443,7 +471,7 @@
       moveMsg: "Cambiaste de posición en la cancha… ¡encestá! 🏀",
     },
     futbol: {
-      name: "Fútbol", emoji: "⚽", next: "ciudad",
+      name: "Fútbol", emoji: "⚽", next: "auto",
       fog: 0x453a75,
       skyStops: [[0, "#070a1c"], [0.26, "#1a2050"], [0.44, "#4a3a80"], [0.52, "#8a4a7d"], [1, "#8a4a7d"]],
       groundColor: 0x14260f,
@@ -454,6 +482,19 @@
       throwLabel: "⚽ ¡PATEAR!",
       sub: "Tiro libre: esquivá la barrera y al arquero ⚽",
       moveMsg: "Más lejos, más barrera y arco más chico 😅 ⚽",
+    },
+    auto: {
+      name: "Auto", emoji: "🚗", next: "ciudad",
+      fog: 0x8a5038,
+      skyStops: [[0, "#140812"], [0.26, "#3a1430"], [0.44, "#8a3a34"], [0.52, "#c9703a"], [1, "#c9703a"]],
+      groundColor: 0x5d3f22,
+      thrower: "car", projectile: "car", target: "bullseye", targetMesh: "ring",
+      handOffset: { x: 8, y: 4.5 },     // punta de la rampa
+      rimR: 2.8,
+      randomEnv: true,
+      throwLabel: "🚗 ¡ACELERAR!",
+      sub: "Viejo oeste: tomá la rampa y pasá por el aro 🛞",
+      moveMsg: "El aro se movió… acomodá la rampa 🚗",
     },
     arquero: {
       name: "Arquero", emoji: "🏹", next: "futbol",
@@ -610,6 +651,12 @@
     } else if (kind === "soccer") {
       plop(140, 70, 0.09, 0.4);                 // ¡pum! del botín
       whoosh(0.3, 250, 900, 0.26);
+    } else if (kind === "car") {
+      // motor acelerando
+      beep(85, 0.45, "sawtooth", 0.16);
+      beep(130, 0.4, "sawtooth", 0.14, 0.12);
+      beep(190, 0.35, "sawtooth", 0.12, 0.24);
+      whoosh(0.6, 120, 700, 0.3, 0.1, "lowpass");
     } else {
       whoosh(0.28, 500, 1700, 0.24);           // banana: silbido agudo
       beep(520, 0.07, "triangle", 0.05, 0.03);
@@ -631,6 +678,10 @@
       // ¡thock! de la flecha clavándose en la paja
       plop(240, 75, 0.08, 0.38);
       whoosh(0.12, 900, 280, 0.3, 0, "lowpass");
+    } else if (targetMesh === "ring") {
+      // pasó limpio por el aro + aterrizaje
+      whoosh(0.25, 1800, 500, 0.3, 0, "bandpass", 2);
+      plop(120, 55, 0.2, 0.32, 0.25);
     } else if (targetMesh === "goal") {
       // la red + rugido de la tribuna
       whoosh(0.18, 1800, 600, 0.25, 0, "bandpass", 2);
@@ -2262,6 +2313,159 @@
     }
   }
 
+  // ---------- desierto del viejo oeste ----------
+  function buildDesert(group) {
+    const cactusMat = new THREE.MeshStandardMaterial({ color: 0x4a7a3a, roughness: 0.85 });
+    const mesaMat = new THREE.MeshStandardMaterial({ color: 0x8a4e2e, roughness: 0.95, flatShading: true });
+    const boneMat = new THREE.MeshStandardMaterial({ color: 0xe8e2d0, roughness: 0.8 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b4e26, roughness: 0.9 });
+    const inPlayArea = (x, z) => x > -52 && x < 54 && z > -34 && z < 22;
+
+    // mesetas en el horizonte
+    for (const [mx2, mz2, mw2, mh2] of [[-95, -75, 34, 22], [40, -95, 46, 28], [110, -60, 30, 17], [-40, -100, 26, 24]]) {
+      const mesa = new THREE.Mesh(new THREE.CylinderGeometry(mw2 * 0.7, mw2, mh2, 9), mesaMat);
+      mesa.position.set(mx2, mh2 / 2, mz2);
+      mesa.castShadow = true;
+      group.add(mesa);
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(mw2 * 0.7, mw2 * 0.72, 1.4, 9), new THREE.MeshStandardMaterial({ color: 0x9a5c38, roughness: 1 }));
+      top.position.set(mx2, mh2 + 0.6, mz2);
+      group.add(top);
+    }
+
+    // cactus saguaro
+    for (let i = 0; i < 16; i++) {
+      const x = rand(-130, 130), z = rand(-80, 40);
+      if (inPlayArea(x, z)) continue;
+      if (z > -12 && Math.abs(x) < 70) continue;
+      const s = rand(0.7, 1.6);
+      const cactus = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CapsuleGeometry(0.55, 4.2, 6, 10), cactusMat);
+      trunk.position.y = 2.9;
+      trunk.castShadow = true;
+      cactus.add(trunk);
+      for (const sxc of [-1, 1]) {
+        if (Math.random() < 0.25) continue;
+        const armLow = new THREE.Mesh(new THREE.CapsuleGeometry(0.36, 1.2, 5, 8), cactusMat);
+        armLow.rotation.z = sxc * Math.PI / 2;
+        armLow.position.set(sxc * 1.15, rand(2.2, 3.4), 0);
+        cactus.add(armLow);
+        const armUp2 = new THREE.Mesh(new THREE.CapsuleGeometry(0.36, 1.4, 5, 8), cactusMat);
+        armUp2.position.set(sxc * 1.75, armLow.position.y + 1.05, 0);
+        cactus.add(armUp2);
+      }
+      cactus.scale.setScalar(s);
+      cactus.position.set(x, 0, z);
+      cactus.rotation.y = rand(0, Math.PI * 2);
+      group.add(cactus);
+    }
+
+    // cráneo de vaca
+    const skull = new THREE.Group();
+    const sk = sphere(0.8, boneMat, 1, 0.8, 0.9);
+    sk.position.y = 0.5;
+    skull.add(sk);
+    for (const sxh of [-1, 1]) {
+      const horn = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.14, 6, 10, 1.6), boneMat);
+      horn.position.set(sxh * 1.05, 0.75, 0);
+      horn.rotation.z = sxh > 0 ? -0.5 : Math.PI + 0.5;
+      skull.add(horn);
+    }
+    skull.position.set(-58, 0, 8);
+    skull.rotation.y = 0.6;
+    group.add(skull);
+
+    // cartel de madera "GRAN SALTO"
+    const signCanvas = document.createElement("canvas");
+    signCanvas.width = 256; signCanvas.height = 96;
+    const sgn = signCanvas.getContext("2d");
+    sgn.fillStyle = "#6b4e26"; sgn.fillRect(0, 0, 256, 96);
+    sgn.strokeStyle = "#3a2a12"; sgn.lineWidth = 6; sgn.strokeRect(4, 4, 248, 88);
+    sgn.fillStyle = "#ffd9a0";
+    sgn.font = "bold 40px serif";
+    sgn.textAlign = "center";
+    sgn.fillText("GRAN SALTO", 128, 60);
+    const signTex = new THREE.CanvasTexture(signCanvas);
+    signTex.encoding = THREE.sRGBEncoding;
+    const sign = new THREE.Group();
+    const board = new THREE.Mesh(new THREE.BoxGeometry(9, 3.4, 0.4), new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.9 }));
+    board.position.y = 5.4;
+    board.castShadow = true;
+    sign.add(board);
+    for (const sxp of [-3.4, 3.4]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 5.6, 6), woodMat);
+      post.position.set(sxp, 2.8, 0);
+      sign.add(post);
+    }
+    sign.position.set(-62, 0, -20);
+    sign.rotation.y = 0.3;
+    group.add(sign);
+
+    // barriles
+    for (const [bx2, bz2] of [[60, 6], [63, 3.5], [-52, -12]]) {
+      const barrel = new THREE.Mesh(
+        new THREE.CylinderGeometry(1, 0.85, 2.2, 10),
+        new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.85 })
+      );
+      barrel.position.set(bx2, 1.1, bz2);
+      barrel.castShadow = true;
+      group.add(barrel);
+      for (const hy of [0.5, 1.6]) {
+        const hoop2 = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.06, 6, 14), new THREE.MeshStandardMaterial({ color: 0x3a3f47, metalness: 0.6, roughness: 0.4 }));
+        hoop2.rotation.x = Math.PI / 2;
+        hoop2.position.set(bx2, hy, bz2);
+        group.add(hoop2);
+      }
+    }
+
+    // rodadoras (ruedan con el viento)
+    const tumbleMat = new THREE.MeshStandardMaterial({ color: 0x9a7a4a, roughness: 1, wireframe: true });
+    const tumbleweeds = [];
+    for (let i = 0; i < 3; i++) {
+      const t = new THREE.Mesh(new THREE.IcosahedronGeometry(rand(0.9, 1.5), 1), tumbleMat);
+      t.position.set(rand(-80, 80), 1.1, [-22, 16, -16][i]);
+      group.add(t);
+      tumbleweeds.push({ m: t, fac: rand(0.8, 1.4) });
+    }
+    group.userData.tumbleweeds = tumbleweeds;
+
+    // cuervos volando en círculos
+    const crows = [];
+    const crowMat = new THREE.MeshBasicMaterial({ color: 0x0c0e14, side: THREE.DoubleSide });
+    for (let i = 0; i < 4; i++) {
+      const crow = new THREE.Group();
+      const wl = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.55), crowMat);
+      wl.position.x = -0.9;
+      const wr = wl.clone();
+      wr.position.x = 0.9;
+      crow.add(wl); crow.add(wr);
+      crow.userData.wl = wl; crow.userData.wr = wr;
+      group.add(crow);
+      crows.push({ bird: crow, ph: rand(0, 6.28), r: rand(24, 42), cy: rand(24, 38) });
+    }
+    group.userData.birds = crows;
+    // un cuervo posado en un cactus
+    const perched = new THREE.Group();
+    const pBody = sphere(0.5, crowMat, 1, 1.1, 0.8);
+    perched.add(pBody);
+    const pBeak = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.5, 6), new THREE.MeshStandardMaterial({ color: 0xffb03a, roughness: 0.6 }));
+    pBeak.rotation.z = -Math.PI / 2;
+    pBeak.position.set(0.55, 0.15, 0);
+    perched.add(pBeak);
+    perched.position.set(-74, 7.4, -28);
+    group.add(perched);
+
+    // huellas de neumático hacia la rampa
+    const trackMat = new THREE.MeshStandardMaterial({ color: 0x4a3218, roughness: 1 });
+    for (let i = 0; i < 8; i++) {
+      for (const tz of [-1.3, 1.3]) {
+        const track = new THREE.Mesh(new THREE.PlaneGeometry(3, 0.5), trackMat);
+        track.rotation.x = -Math.PI / 2;
+        track.position.set(-70 + i * 4.2, 0.09, tz);
+        group.add(track);
+      }
+    }
+  }
+
   let envGroup = null;
   function makeEnv() {
     if (envGroup) { scene.remove(envGroup); disposeGroup(envGroup); }
@@ -2269,6 +2473,7 @@
     const sc = scen();
     if (sc.thrower === "player") buildCourt(envGroup);
     else if (sc.thrower === "futbol") buildPitch(envGroup);
+    else if (sc.thrower === "car") buildDesert(envGroup);
     else if (state.scenKey === "selva") buildJungle(envGroup);
     else if (state.scenKey === "arquero") buildForest(envGroup);
     else buildCity(envGroup);
@@ -2781,8 +2986,124 @@
     goalGroup.add(top);
   }
 
-  const THROWERS = { gorilla, player, police, archer, futbol };
-  const ARMS = { gorilla: gorillaArm, player: playerArm, police: policeArm, archer: archerArm, futbol: futbolLeg };
+  // ---------- auto acrobático con rampa ----------
+  function makeStuntCar(scale = 1) {
+    const g = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xd03a2e, roughness: 0.35, metalness: 0.3 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.1, 2.4), bodyMat);
+    body.position.y = 1.15;
+    body.castShadow = true;
+    g.add(body);
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 2.2), bodyMat);
+    nose.position.set(2.5, 0.95, 0);
+    g.add(nose);
+    const cabin = new THREE.Mesh(
+      new THREE.BoxGeometry(1.9, 0.95, 2),
+      new THREE.MeshStandardMaterial({ color: 0x1c2733, roughness: 0.2, metalness: 0.5 })
+    );
+    cabin.position.set(-0.3, 2.1, 0);
+    cabin.castShadow = true;
+    g.add(cabin);
+    // llanta ancha de stunt
+    const wheelMat2 = new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.85 });
+    for (const [wx, wz] of [[-1.5, 1.35], [1.7, 1.35], [-1.5, -1.35], [1.7, -1.35]]) {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.6, 12), wheelMat2);
+      wheel.rotation.x = Math.PI / 2;
+      wheel.position.set(wx, 0.75, wz);
+      g.add(wheel);
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.65, 8), new THREE.MeshStandardMaterial({ color: 0xe8c34a, roughness: 0.4, metalness: 0.5 }));
+      hub.rotation.x = Math.PI / 2;
+      hub.position.set(wx, 0.75, wz);
+      g.add(hub);
+    }
+    // llama decorativa en el capó y número
+    const decal = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.6, 1.2),
+      new THREE.MeshBasicMaterial({ color: 0xffd54a, transparent: true, opacity: 0.9 })
+    );
+    decal.rotation.x = -Math.PI / 2;
+    decal.position.set(1.6, 1.72, 0);
+    g.add(decal);
+    // faros
+    for (const lz of [-0.8, 0.8]) {
+      const hl = new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 6), new THREE.MeshBasicMaterial({ color: 0xfff2b8, toneMapped: false }));
+      hl.position.set(3.15, 1.1, lz);
+      g.add(hl);
+    }
+    // caño de escape
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 1.2, 6), new THREE.MeshStandardMaterial({ color: 0x9aa0aa, metalness: 0.7, roughness: 0.3 }));
+    pipe.rotation.z = Math.PI / 2;
+    pipe.position.set(-2.5, 0.9, 0.8);
+    g.add(pipe);
+    g.scale.setScalar(scale);
+    return g;
+  }
+
+  const carBase = new THREE.Group();   // la rampa (el "lanzador")
+  const rampMat = new THREE.MeshStandardMaterial({ color: 0x8a6a3a, roughness: 0.85 });
+  const carRamp = new THREE.Group();
+  {
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(9.5, 0.5, 4.6), rampMat);
+    deck.geometry.translate(4.75, 0.25, 0);   // pivote en el borde trasero
+    deck.castShadow = true;
+    carRamp.add(deck);
+    // listones
+    const slatMat = new THREE.MeshStandardMaterial({ color: 0x6b4e26, roughness: 0.9 });
+    for (let i = 1; i < 5; i++) {
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.56, 4.6), slatMat);
+      slat.position.set(i * 1.9, 0.26, 0);
+      carRamp.add(slat);
+    }
+  }
+  carRamp.position.set(1.5, 0, 0);
+  carBase.add(carRamp);
+  // soportes fijos
+  for (const [sx2, sh2] of [[6.5, 2], [9.5, 3.6]]) {
+    const strut = new THREE.Mesh(new THREE.BoxGeometry(0.5, sh2, 3.8), rampMat);
+    strut.position.set(sx2, sh2 / 2, 0);
+    carBase.add(strut);
+  }
+  const carRest = makeStuntCar(1);
+  carRest.position.set(-4.5, 0, 0);
+  carBase.add(carRest);
+  scene.add(carBase);
+  const carFly = makeStuntCar(1);
+  carFly.rotation.order = "YZX";
+  carFly.visible = false;
+  scene.add(carFly);
+
+  // ---------- aro para el salto ----------
+  const ringGroup = new THREE.Group();
+  const ringTorus = new THREE.Mesh(
+    new THREE.TorusGeometry(3.15, 0.35, 12, 30),
+    new THREE.MeshStandardMaterial({ color: 0xd03a2e, roughness: 0.5, emissive: 0x3a0e08 })
+  );
+  ringTorus.rotation.y = Math.PI / 2;   // el plano del aro mira al auto
+  ringTorus.castShadow = true;
+  ringGroup.add(ringTorus);
+  // marcas blancas
+  const ringMarks = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const seg = new THREE.Mesh(
+      new THREE.TorusGeometry(3.15, 0.37, 8, 6, 0.5),
+      new THREE.MeshStandardMaterial({ color: 0xf2f6ff, roughness: 0.5 })
+    );
+    seg.rotation.z = i * Math.PI / 2 + 0.4;
+    ringMarks.add(seg);
+  }
+  ringMarks.rotation.y = Math.PI / 2;
+  ringGroup.add(ringMarks);
+  ringTorus.userData.marks = ringMarks;
+  const ringPole = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, 1, 8), rampMat);
+  ringPole.geometry.translate(0, 0.5, 0);
+  ringGroup.add(ringPole);
+  const ringBase = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.7, 2.4), rampMat);
+  ringBase.position.y = 0.35;
+  ringGroup.add(ringBase);
+  scene.add(ringGroup);
+
+  const THROWERS = { gorilla, player, police, archer, futbol, car: carBase };
+  const ARMS = { gorilla: gorillaArm, player: playerArm, police: policeArm, archer: archerArm, futbol: futbolLeg, car: new THREE.Group() };
   const activeThrower = () => THROWERS[scen().thrower];
   const activeArm = () => ARMS[scen().thrower];
 
@@ -2940,8 +3261,8 @@
   soccerRest.position.set(2.2, 0.95, 0);
   futbol.add(soccerRest);
 
-  const FLY = { banana: bananaFly, ball: ballFly, rock: rockFly, arrow: arrowFly, soccer: soccerFly };
-  const HAND = { banana: bananaHand, ball: ballHand, rock: rockHand, arrow: arrowHand, soccer: soccerRest };
+  const FLY = { banana: bananaFly, ball: ballFly, rock: rockFly, arrow: arrowFly, soccer: soccerFly, car: carFly };
+  const HAND = { banana: bananaHand, ball: ballHand, rock: rockHand, arrow: arrowHand, soccer: soccerRest, car: carRest };
   const flyItem = () => FLY[scen().projectile];
   const handItem = () => HAND[scen().projectile];
 
@@ -3410,7 +3731,7 @@
         pedestalCap.position.set(k.x, k.pedestalH - 0.25, k.z);
       }
     } else if (sc.target === "bullseye") {
-      // el montículo con el blanco se mueve, el arquero se aleja
+      // el blanco se mueve, el lanzador se aleja
       state.thrower.x = -34 - back;
       state.thrower.z = 0;
       k.x = rand(4, 44);
@@ -3418,14 +3739,25 @@
       k.z = rand(-zAmp, Math.min(zAmp, 16));
       k.pedestalH = 0;
       k.baseY = 0;
-      k.cy = BULL.cy;
-      k.rimY = BULL.moundH;          // para la flecha indicadora
-      // inclinación base hacia la cámara (se ve el disco) + giro extra por nivel
+      // inclinación base hacia la cámara + giro extra por nivel
       k.rot = 0.3 + (state.level === 1 ? 0
             : (Math.random() < 0.5 ? -1 : 1) * rand(0.12, Math.min(0.65, 0.08 + state.level * 0.09)));
       pedestal.visible = pedestalCap.visible = false;
-      bullseyeGroup.position.set(k.x, 0, k.z);
-      bullseyeGroup.rotation.y = k.rot;
+      if (sc.targetMesh === "ring") {
+        // el aro del salto: cada vez más alto y más girado
+        k.cy = 6.5 + rand(0, Math.min(8, state.level * 1.1));
+        k.rimY = k.cy + 3.5;           // flecha indicadora sobre el aro
+        ringGroup.position.set(k.x, 0, k.z);
+        ringGroup.rotation.y = k.rot;
+        ringTorus.position.y = k.cy;
+        ringTorus.userData.marks.position.y = k.cy;
+        ringPole.scale.y = Math.max(0.5, k.cy - 2.9);
+      } else {
+        k.cy = BULL.cy;
+        k.rimY = BULL.moundH;          // para la flecha indicadora
+        bullseyeGroup.position.set(k.x, 0, k.z);
+        bullseyeGroup.rotation.y = k.rot;
+      }
     } else if (sc.target === "goal") {
       // fútbol: el arco es fijo pero se achica; el pateador se aleja
       // y aparece una barrera cada vez más larga
@@ -3520,7 +3852,7 @@
     setWind();
     clearTrails();
     state.banana = null;
-    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = soccerFly.visible = false;
+    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = soccerFly.visible = carFly.visible = false;
     handItem().visible = true;
     state.celebrating = false;
     ui.levelTxt.textContent = state.level;
@@ -3540,10 +3872,12 @@
     police.visible = sc.thrower === "police";
     archer.visible = sc.thrower === "archer";
     futbol.visible = sc.thrower === "futbol";
+    carBase.visible = sc.thrower === "car";
     basketGroup.visible = sc.targetMesh === "wicker";
     trashGroup.visible = sc.targetMesh === "trash";
     hoopGroup.visible = sc.targetMesh === "hoop";
     bullseyeGroup.visible = sc.targetMesh === "bullseye";
+    ringGroup.visible = sc.targetMesh === "ring";
     goalGroup.visible = gkGroup.visible = sc.targetMesh === "goal";
     if (sc.targetMesh !== "goal") wallDummies.forEach(d => d.visible = false);
     if (sc.pedestalColors) {
@@ -3554,13 +3888,16 @@
     ballHand.visible = sc.projectile === "ball";
     rockHand.visible = sc.projectile === "rock";
     arrowHand.visible = sc.projectile === "arrow";
+    carRest.visible = sc.projectile === "car";
     ui.throwBtn.textContent = sc.throwLabel;
     ui.scenBtn.textContent = `${sc.emoji} ${sc.name}`;
   }
 
-  function switchScenario() {
+  function switchScenario(key) {
     if (state.banana) return;   // no cambiar en pleno vuelo
-    state.scenKey = scen().next;
+    const target = key && SCENARIOS[key] ? key : scen().next;
+    if (target === state.scenKey) return;
+    state.scenKey = target;
     state.level = 1;
     state.tries = 0;
     ui.triesTxt.textContent = "0";
@@ -3604,13 +3941,17 @@
     state.armUp = 1;
     handItem().visible = false;
     flyItem().visible = true;
+    if (scen().projectile === "car") {
+      // polvo de la aceleración en la base de la rampa
+      spawnParticles(state.thrower.x, 1, state.thrower.z, [0x9a7a4a, 0x6b4e26], 22, [4, 18], 5);
+    }
     sndThrow(scen().projectile);
   }
 
   function endThrow(hit) {
     commitTrailToLast();
     state.banana = null;
-    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = soccerFly.visible = false;
+    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = soccerFly.visible = carFly.visible = false;
     if (hit) {
       state.celebrating = true;
       const r = rec(state.scenKey);
@@ -3622,6 +3963,7 @@
       const k = state.basket;
       spawnParticles(k.x, k.rimY + 1, k.z, [0xffd54a, 0xff9d2e, 0x7cf29c, 0x7cc4ff, 0xff7ce0, 0xffffff], 130, [15, 55], 20);
       const hitTitle = scen().target === "hoop" ? "🏀 ¡ENCESTASTE!"
+                     : scen().targetMesh === "ring" ? "🚗 ¡SALTO PERFECTO!"
                      : scen().target === "bullseye" ? "🏹 ¡EN EL BLANCO!"
                      : scen().target === "goal" ? "⚽ ¡GOOOOL!"
                      : "🎯 ¡EMBOCASTE!";
@@ -3649,8 +3991,9 @@
     const item = flyItem();
     item.position.set(b.x, b.y, b.z);
     item.rotation.y = Math.atan2(-b.vz, b.vx);
-    if (scen().projectile === "arrow") {
-      // la flecha no gira: apunta siempre en la dirección del vuelo
+    const pj = scen().projectile;
+    if (pj === "arrow" || pj === "car") {
+      // flecha y auto no giran: la trompa sigue la dirección del vuelo
       item.rotation.z = Math.atan2(b.vy, Math.hypot(b.vx, b.vz));
     } else {
       item.rotation.z -= dt * 9;
@@ -3740,18 +4083,30 @@
         if (dr < k.rimR) {
           spawnParticles(wx, cy, wz, [0xffd54a, 0xfff2c0], 26, [5, 20], 8);
           endThrow(true);
-          // la flecha queda clavada en el blanco durante el festejo
-          arrowFly.visible = true;
-          arrowFly.position.set(k.x - 3.4 * c + s * clz, cy, k.z + 3.4 * s + c * clz);
-          arrowFly.rotation.set(0, k.rot || 0, 0);
+          if (sc.projectile === "arrow") {
+            // la flecha queda clavada en el blanco durante el festejo
+            arrowFly.visible = true;
+            arrowFly.position.set(k.x - 3.4 * c + s * clz, cy, k.z + 3.4 * s + c * clz);
+            arrowFly.rotation.set(0, k.rot || 0, 0);
+          }
           return;
         }
-        const inMound = cy >= 0 && Math.pow(cy / BULL.moundH, 2) + Math.pow(clz / BULL.moundR, 2) < 1;
-        if (inMound) {
-          spawnParticles(wx, cy, wz, [0xd8b84a, 0xb89a3a], 18, [5, 22], 6);
-          state.shake = 1.1;
-          endThrow(false);
-          return;
+        if (sc.targetMesh === "ring") {
+          // golpe contra el borde del aro
+          if (dr < k.rimR + 1.2) {
+            spawnParticles(wx, cy, wz, [0xff9d5e, 0xf2f6ff], 16, [5, 24], 6);
+            state.shake = 1.3;
+            endThrow(false);
+            return;
+          }
+        } else {
+          const inMound = cy >= 0 && Math.pow(cy / BULL.moundH, 2) + Math.pow(clz / BULL.moundR, 2) < 1;
+          if (inMound) {
+            spawnParticles(wx, cy, wz, [0xd8b84a, 0xb89a3a], 18, [5, 22], 6);
+            state.shake = 1.1;
+            endThrow(false);
+            return;
+          }
         }
       }
       if (b.y < 0.45) {
@@ -3851,6 +4206,8 @@
     policeArm.rotation.z = lerp(0.45, 2.6, state.armUp);
     archerArm.rotation.z = lerp(0.45, 2.6, state.armUp);
     futbolLeg.rotation.z = lerp(0, 1.5, state.armUp);   // patada
+    // la rampa se inclina en vivo con el slider de ángulo
+    carRamp.rotation.z = (+ui.angle.value) * Math.PI / 180 * 0.55;
     const k = state.basket;
     const arrowBaseY = scen().target === "hoop" ? k.rimY + 4.6 : k.rimY + 3.2;
     arrow.position.set(k.x, arrowBaseY + Math.sin(state.time * 3) * 0.7, k.z);
@@ -3962,6 +4319,15 @@
       // aspas del molino
       const mill = envGroup.userData.mill;
       if (mill) mill.rotation.z += dt * 0.5;
+      // rodadoras del desierto
+      const tws = envGroup.userData.tumbleweeds;
+      if (tws) for (const { m, fac } of tws) {
+        const push = (state.wind || 1.4) * 2.2 * fac;
+        m.position.x += push * dt;
+        m.rotation.z -= push * dt * 0.9;
+        if (m.position.x > 110) m.position.x = -110;
+        if (m.position.x < -110) m.position.x = 110;
+      }
     }
 
     // el lanzador rota suavemente hacia el giro elegido
@@ -3993,7 +4359,28 @@
   ui.power.addEventListener("input", () => syncSlider(ui.power, ui.powerOut, ""));
   ui.throwBtn.addEventListener("click", throwBanana);
   ui.viewBtn.addEventListener("click", resetView);
-  ui.scenBtn.addEventListener("click", switchScenario);
+  // selector de escenarios: lista para elegir directo
+  const scenOverlay = document.getElementById("scenOverlay");
+  const scenList = document.getElementById("scenList");
+  ui.scenBtn.addEventListener("click", () => {
+    scenList.innerHTML = "";
+    for (const key of Object.keys(SCENARIOS)) {
+      const sc = SCENARIOS[key];
+      const btn = document.createElement("button");
+      btn.dataset.scen = key;
+      btn.textContent = `${sc.emoji}  ${sc.name}`;
+      if (key === state.scenKey) btn.classList.add("current");
+      btn.addEventListener("click", () => {
+        scenOverlay.classList.remove("show");
+        switchScenario(key);
+      });
+      scenList.appendChild(btn);
+    }
+    scenOverlay.classList.add("show");
+  });
+  scenOverlay.addEventListener("click", (e) => {
+    if (e.target === scenOverlay) scenOverlay.classList.remove("show");
+  });
   ui.windBtn.addEventListener("click", () => {
     state.windEnabled = !state.windEnabled;
     ui.windBtn.textContent = state.windEnabled ? "💨 ON" : "💨 OFF";

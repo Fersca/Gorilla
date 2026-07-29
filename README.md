@@ -15,6 +15,9 @@ El botón del HUD (arriba a la izquierda) cambia entre tres escenarios:
 | 🏀 **Básquet** | Un jugador tira al aro (tablero, hierro y red) en un **estadio con tribunas llenas de público**. Acá el aro es fijo: lo que cambia por nivel es **tu posición en la cancha**, cada vez más lejos y con más ángulo. |
 | 🏹 **Arquero** | Un arquero con túnica y capucha medieval dispara flechas a un **blanco de aros sobre un montículo de paja**, en un bosque con prado, pinos, robles y casitas medievales. La flecha vuela orientada a su trayectoria y queda clavada en el blanco. Si pega en la paja fuera de los aros, es fallo. |
 | ⚽ **Fútbol** | Tiro libre en un estadio: un jugador con la 10 patea al **arco con red**, custodiado por un **arquero que ataja** (cambia de palo en cada nivel). Con el nivel te alejás, aparece una **barrera de rivales** cada vez más larga y **el arco se achica**. Pegarle a la barrera, al arquero o al palo es fallo. |
+| 🚗 **Auto** | Salto acrobático en un desierto del viejo oeste (mesetas, cactus, cuervos, rodadoras): un auto toma la **rampa** — que se inclina con el Ángulo y gira con el Giro — y tiene que **pasar volando por dentro de un aro elevado**. La Fuerza es la velocidad. El aro sube y se gira con el nivel; rozar el borde es fallo. |
+
+El botón de escenario del HUD abre un **selector con la lista completa** para saltar directo a cualquiera.
 
 ## Cómo jugar
 
