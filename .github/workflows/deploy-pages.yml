@@ -23,6 +23,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # version.json se genera desde la constante GAME_VERSION del juego:
+      # una sola fuente de verdad para el detector de actualizaciones.
+      - name: Generar version.json
+        run: |
+          V=$(grep -oP 'const GAME_VERSION = \K[0-9]+' index.html)
+          echo "{\"version\": ${V}}" > version.json
+          echo "Publicando versión ${V}"
+
       - name: Publicar en gh-pages
         run: |
           git config user.name "github-actions[bot]"

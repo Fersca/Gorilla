@@ -52,12 +52,22 @@ Con cada nivel, en todos los escenarios:
 
 ## Instalar como app 📲
 
-El botón **📲 Instalar** del HUD pregunta **cómo la querés instalar**:
+El botón **📲 Instalar** aparece **solo cuando el juego corre en el navegador**: si ya está abierto como app instalada (PWA en pantalla completa o app nativa de Android), el juego lo detecta al arrancar y el botón no se muestra.
+
+Desde el navegador, el botón pregunta **cómo la querés instalar**:
 
 - **🌐 Web App (PWA)** — recomendada: instalación nativa donde existe (Chrome/Android/Edge) o instrucciones del navegador (iPhone/Safari, Firefox…). Queda en el escritorio con el **ícono cartoon**, abre en **pantalla completa** y **funciona offline** (service worker).
 - **🤖 App nativa de Android (APK)** — descarga el APK empaquetado con **Capacitor** y compilado automáticamente por GitHub Actions en cada push (release [`app-latest`](https://github.com/Fersca/Gorilla/releases/tag/app-latest)). Al instalarlo, Android puede pedir permitir *"instalar apps desconocidas"* (normal fuera de Play Store). En iPhone no hay equivalente — Apple solo permite apps vía App Store, así que ahí la vía es la PWA.
 
 Desde el navegador, el botón **⛶ Pantalla** pone el juego en pantalla completa sin instalar nada. También podés abrir `index.html` directo desde el archivo, sin servidor ni build.
+
+## Versiones y actualización automática ⬇️
+
+El juego lleva un **número de versión** (arranca en la **0** y se incrementa en cada release): es la constante `GAME_VERSION` de `index.html` — única fuente de verdad — y se muestra en el cartel **Acerca de…**. En cada deploy, el workflow de Pages genera `version.json` con ese mismo número y lo publica junto al juego.
+
+**Al abrir la app se chequea si hay actualización** (consultando `version.json`, que nunca se cachea): si el sitio publica una versión más nueva que la instalada, aparece el aviso *"¡Hay versión nueva!"*, se descarta el caché viejo y **se baja el contenido nuevo automáticamente** — la PWA/navegador recarga fresco (el service worker trae la versión nueva de la red) y la app nativa carga el sitio actualizado dentro de la misma app. Sin conexión no pasa nada: se juega con la versión que ya está en el dispositivo. Un guardián por sesión evita recargas en loop si algo falla.
+
+Para publicar una versión nueva alcanza con **subir `GAME_VERSION` en `index.html`** y pushear: el deploy hace el resto.
 
 ## Detalles técnicos
 
@@ -89,7 +99,7 @@ screenshots/          capturas para el README
 
 Cada push a la rama de desarrollo dispara **dos workflows**:
 
-1. **Deploy a GitHub Pages** — publica el juego web en la rama `gh-pages` (no hay que tocarla a mano).
+1. **Deploy a GitHub Pages** — genera `version.json` a partir de `GAME_VERSION` y publica el juego web en la rama `gh-pages` (no hay que tocarla a mano).
 2. **Build Android APK** — `npm run sync:android` (arma `www/` y sincroniza Capacitor), compila con Gradle en el runner (que trae el SDK de Android) y publica `apunto-y-tiro.apk` en el release **`app-latest`**, que es lo que descarga el botón "App nativa" del sitio.
 
 Para desarrollar la app nativa localmente hace falta Android Studio/SDK: `npm install && npm run sync:android` y abrir `android/` en Android Studio.

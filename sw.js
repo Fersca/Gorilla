@@ -1,5 +1,5 @@
 // Service worker: habilita la instalación como app y el juego offline.
-const CACHE = "apunto-y-tiro-v3";
+const CACHE = "apunto-y-tiro-v4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -28,6 +28,12 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
+  // version.json va SIEMPRE a la red: es el detector de actualizaciones
+  // (si se cacheara, nunca nos enteraríamos de una versión nueva)
+  if (req.url.includes("version.json")) {
+    e.respondWith(fetch(req));
+    return;
+  }
   const isNav = req.mode === "navigate" || req.url.endsWith("/index.html");
   if (isNav) {
     // páginas: red primero (para recibir versiones nuevas), caché de respaldo

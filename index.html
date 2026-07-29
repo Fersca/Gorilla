@@ -400,6 +400,7 @@
   <div id="aboutCard">
     <h2>🎯 Apunto y Tiro</h2>
     <p class="aboutMsg">Construido por <b>Fernando Scasserra</b> y su IA<br>para <b>Julián</b> y <b>Simón</b><br>en Tandil ❤️</p>
+    <p class="rankHint" id="verTxt"></p>
     <p class="rankHint">tocá en cualquier lado para cerrar</p>
   </div>
 </div>
@@ -5231,10 +5232,18 @@
     e.preventDefault();
     installPrompt = e;
   });
+  // instalada como PWA (abre en modo standalone/fullscreen, sin navegador)
   const isStandalone = navigator.standalone === true
     || window.matchMedia("(display-mode: standalone)").matches
     || window.matchMedia("(display-mode: fullscreen)").matches;
-  if (isStandalone) ui.installBtn.style.display = "none";   // ya está instalada
+  // corriendo dentro de la app nativa (Capacitor inyecta window.Capacitor;
+  // de respaldo, el WebView de Android se identifica con "; wv)" en el UA)
+  const isNative = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function"
+      ? window.Capacitor.isNativePlatform()
+      : /; wv\)/.test(navigator.userAgent));
+  // el botón Instalar solo tiene sentido en el navegador: si el juego ya
+  // corre instalado (PWA o app nativa), no se muestra
+  if (isStandalone || isNative) ui.installBtn.style.display = "none";
   window.addEventListener("appinstalled", () => { ui.installBtn.style.display = "none"; });
   const APK_URL = "https://github.com/Fersca/Gorilla/releases/download/app-latest/apunto-y-tiro.apk";
   const choiceOverlay = document.getElementById("choiceOverlay");
@@ -5282,6 +5291,41 @@
     if (e.target === choiceOverlay) choiceOverlay.classList.remove("show");
   });
   ui.installOverlay.addEventListener("click", () => ui.installOverlay.classList.remove("show"));
+
+  // ------------------------------------------------ versiones y actualización
+  // GAME_VERSION es la versión del contenido del juego (se incrementa en cada
+  // release); el deploy publica version.json con este mismo número. Al abrir,
+  // si el sitio tiene una versión más nueva, se baja el contenido nuevo.
+  const GAME_VERSION = 0;
+  const PAGES_URL = "https://fersca.github.io/Gorilla/";
+  document.getElementById("verTxt").textContent = "versión " + GAME_VERSION;
+  async function checkForUpdate() {
+    try {
+      // desde la app nativa (o un index.html suelto) se consulta el sitio publicado
+      const local = isNative || location.protocol === "file:";
+      const res = await fetch((local ? PAGES_URL : "") + "version.json?nc=" + Date.now(), { cache: "no-store" });
+      if (!res.ok) return;
+      const remote = (await res.json()).version;
+      if (!Number.isFinite(remote) || remote <= GAME_VERSION) return;
+      // un solo intento por versión y por sesión, para no entrar en loop
+      const KEY = "gorilla-update-try";
+      if (+sessionStorage.getItem(KEY) === remote) return;
+      sessionStorage.setItem(KEY, String(remote));
+      showBanner("⬇️ ¡HAY VERSIÓN NUEVA!", `Bajando la versión ${remote} del juego…`, 2400);
+      // tirar el caché viejo para que llegue todo fresco
+      if (window.caches) {
+        try {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        } catch (e) { /* sin permisos de caché */ }
+      }
+      setTimeout(() => {
+        if (local) location.href = PAGES_URL + "?v=" + remote;   // la app nativa carga el sitio nuevo
+        else location.reload();                                  // el navegador/PWA recarga fresco
+      }, 1600);
+    } catch (e) { /* sin conexión: se juega con la versión que hay */ }
+  }
+  checkForUpdate();
 
   // ------------------------------------------------ botones −/+ de cada slider
   const SLIDER_META = {
