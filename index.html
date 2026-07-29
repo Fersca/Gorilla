@@ -139,7 +139,14 @@
     border-color: rgba(255,213,74,.5);
     color: var(--accent);
   }
-  #rankOverlay, #installOverlay, #scenOverlay {
+  .aboutMsg {
+    font-size: 16px;
+    line-height: 1.8;
+    text-align: center;
+    max-width: 300px;
+  }
+  .aboutMsg b { color: var(--accent); }
+  #rankOverlay, #installOverlay, #scenOverlay, #aboutOverlay {
     position: fixed;
     inset: 0;
     display: none;
@@ -150,10 +157,10 @@
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
   }
-  #rankOverlay.show, #installOverlay.show, #scenOverlay.show { display: flex; }
+  #rankOverlay.show, #installOverlay.show, #scenOverlay.show, #aboutOverlay.show { display: flex; }
   #installCard p { font-size: 14px; line-height: 1.55; max-width: 300px; }
   #installCard b { color: var(--accent); }
-  #installCard, #rankCard, #scenCard {
+  #installCard, #rankCard, #scenCard, #aboutCard {
     background: var(--panel-bg);
     border: 1px solid var(--panel-border);
     border-radius: 18px;
@@ -162,7 +169,7 @@
     max-width: 92vw;
     box-shadow: 0 24px 70px rgba(0,0,0,.6);
   }
-  #rankCard h2, #installCard h2, #scenCard h2 { font-size: 20px; margin-bottom: 14px; color: var(--accent); text-align: center; }
+  #rankCard h2, #installCard h2, #scenCard h2, #aboutCard h2 { font-size: 20px; margin-bottom: 14px; color: var(--accent); text-align: center; }
   #rankCard table { width: 100%; border-collapse: collapse; font-size: 14px; }
   #rankCard th, #rankCard td { padding: 7px 10px; text-align: right; white-space: nowrap; }
   #rankCard th:first-child, #rankCard td:first-child { text-align: left; }
@@ -340,6 +347,7 @@
     <div class="chip">🎯 Intentos <b id="triesTxt">0</b></div>
     <button class="chip" id="scenBtn">🏙️ Ciudad</button>
     <button class="chip" id="rankBtn">🏆 Ranking</button>
+    <button class="chip" id="aboutBtn">ℹ️ Acerca de…</button>
   </div>
   <div class="hudGroup">
     <button class="chip" id="windBtn">💨 ON</button>
@@ -372,6 +380,14 @@
   <div id="scenCard">
     <h2>Elegí escenario</h2>
     <div id="scenList"></div>
+  </div>
+</div>
+
+<div id="aboutOverlay">
+  <div id="aboutCard">
+    <h2>🎯 Apunto y Tiro</h2>
+    <p class="aboutMsg">Construido por <b>Fernando Scasserra</b> y su IA<br>para <b>Julián</b> y <b>Simón</b><br>en Tandil ❤️</p>
+    <p class="rankHint">tocá en cualquier lado para cerrar</p>
   </div>
 </div>
 <div id="rotateHint">📱 Girá el teléfono para ver mejor</div>
@@ -4403,6 +4419,11 @@
   }
   ui.rankBtn.addEventListener("click", showRanking);
   ui.rankOverlay.addEventListener("click", () => ui.rankOverlay.classList.remove("show"));
+
+  // ------------------------------------------------ acerca de
+  const aboutOverlay = document.getElementById("aboutOverlay");
+  document.getElementById("aboutBtn").addEventListener("click", () => aboutOverlay.classList.add("show"));
+  aboutOverlay.addEventListener("click", () => aboutOverlay.classList.remove("show"));
 
   // ------------------------------------------------ pantalla completa
   const fsEl = document.documentElement;
