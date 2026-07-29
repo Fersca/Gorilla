@@ -3644,6 +3644,76 @@
       aimDots[i].visible = show;
       aimDots[i].position.set(x, y, z);
     }
+    updateAngleGizmo(show, +ui.angle.value, yaw, p);
+  }
+
+  // ------------------------------------------------ indicador de ángulo 📐
+  // (educativo: eje horizontal, pendiente del tiro, arco y grados)
+  const angleGizmo = new THREE.Group();
+  scene.add(angleGizmo);
+  const GIZMO_R = 4.4, GIZMO_LEN = 9;
+  function gizmoLine(color, opacity, points) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(points * 3), 3));
+    const l = new THREE.Line(geo, new THREE.LineBasicMaterial({
+      color, transparent: true, opacity, toneMapped: false, depthWrite: false,
+    }));
+    l.frustumCulled = false;
+    angleGizmo.add(l);
+    return l;
+  }
+  // eje x horizontal de referencia
+  const gizmoBase = gizmoLine(0xffffff, 0.5, 2);
+  gizmoBase.geometry.attributes.position.array[3] = GIZMO_LEN;
+  gizmoBase.geometry.attributes.position.needsUpdate = true;
+  // pendiente del disparo
+  const gizmoSlope = gizmoLine(0xffd54a, 0.95, 2);
+  // arco entre las dos líneas
+  const ARC_N = 28;
+  const gizmoArc = gizmoLine(0xffd54a, 0.95, ARC_N + 1);
+  // etiqueta con los grados
+  const degCanvas = document.createElement("canvas");
+  degCanvas.width = 160; degCanvas.height = 80;
+  const degCtx = degCanvas.getContext("2d");
+  const degTex = new THREE.CanvasTexture(degCanvas);
+  const degSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: degTex, transparent: true, depthWrite: false }));
+  degSprite.scale.set(5.6, 2.8, 1);
+  angleGizmo.add(degSprite);
+  let lastDeg = -1;
+  function updateAngleGizmo(show, deg, yaw, p) {
+    angleGizmo.visible = show;
+    if (!show) return;
+    angleGizmo.position.set(p.x, p.y, p.z);
+    angleGizmo.rotation.y = yaw;   // el plano del gizmo sigue al giro
+    const a = deg * Math.PI / 180;
+    const sp = gizmoSlope.geometry.attributes.position.array;
+    sp[3] = Math.cos(a) * GIZMO_LEN;
+    sp[4] = Math.sin(a) * GIZMO_LEN;
+    gizmoSlope.geometry.attributes.position.needsUpdate = true;
+    const ap = gizmoArc.geometry.attributes.position.array;
+    for (let i = 0; i <= ARC_N; i++) {
+      const t = a * i / ARC_N;
+      ap[i * 3] = Math.cos(t) * GIZMO_R;
+      ap[i * 3 + 1] = Math.sin(t) * GIZMO_R;
+      ap[i * 3 + 2] = 0;
+    }
+    gizmoArc.geometry.attributes.position.needsUpdate = true;
+    // el número va sobre la bisectriz del ángulo, junto al arco
+    const mid = a / 2;
+    degSprite.position.set(Math.cos(mid) * (GIZMO_R + 2.8), Math.sin(mid) * (GIZMO_R + 2.8), 0);
+    if (deg !== lastDeg) {
+      lastDeg = deg;
+      degCtx.clearRect(0, 0, 160, 80);
+      degCtx.font = "bold 52px sans-serif";
+      degCtx.textAlign = "center";
+      degCtx.lineWidth = 10;
+      degCtx.lineJoin = "round";
+      degCtx.strokeStyle = "rgba(10,12,24,.9)";
+      degCtx.strokeText(deg + "°", 80, 58);
+      degCtx.fillStyle = "#ffd54a";
+      degCtx.fillText(deg + "°", 80, 58);
+      degTex.needsUpdate = true;
+    }
   }
 
   // ==================================================================

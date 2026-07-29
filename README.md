@@ -28,6 +28,7 @@ Abrí `index.html` en cualquier navegador (funciona directo desde el archivo, si
 El juego es una **PWA**: el botón **📲 Instalar** del HUD dispara la instalación nativa donde el navegador la soporta (Chrome/Android), y en el resto (iPhone, Firefox…) muestra las instrucciones del navegador correspondiente. Instalada queda con el ícono del gorila y abre en **pantalla completa**, sin controles del navegador, y funciona **offline**. Jugando desde el navegador, el botón **⛶ Pantalla** pone el juego en pantalla completa sin instalar nada.
 
 - **Ángulo**, **Giro** y **Fuerza**: con los sliders, con los botones **−/+** al lado de cada uno (mantenelos apretados para repetir), o con el teclado (`↑`/`↓` ángulo, `Q`/`E` giro, `←`/`→` fuerza).
+- **Indicador de ángulo 📐 (educativo)**: en el punto de disparo se dibuja el eje horizontal, la pendiente del tiro y el **arco entre ambos con los grados marcados** — cambia en vivo al mover el slider, para que los chicos vean qué significa cada ángulo.
 - **Ranking** (botón `🏆`): récords guardados en el dispositivo por escenario — mejor nivel, emboques, intentos y efectividad. Cuando superás tu mejor nivel, el festejo lo anuncia.
 - **Giro**: rota al gorila sobre su eje — el tiro es balística 3D real (x, y, z), así que además de la parábola tenés que apuntar bien en el plano horizontal, porque el canasto aparece a distintas profundidades.
 - **Lanzar**: botón `¡LANZAR!` o barra espaciadora.
