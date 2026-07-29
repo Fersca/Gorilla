@@ -13,10 +13,11 @@ Un homenaje moderno al clásico **GORILLA.BAS** de QBasic, hecho en HTML + JavaS
 | ![Ciudad: el policía y el tacho](screenshots/ciudad.png) 🏙️ **Ciudad** | ![Selva: el gorila y el canasto](screenshots/selva.png) 🌴 **Selva** |
 | ![Básquet: estadio y aro](screenshots/basquet.png) 🏀 **Básquet** | ![Arquero: bosque medieval y blanco](screenshots/arquero.png) 🏹 **Arquero** |
 | ![Fútbol: tiro libre con barrera y arquero](screenshots/futbol.png) ⚽ **Fútbol** | ![Auto: rampa y aro en el desierto](screenshots/auto.png) 🚗 **Auto** |
+| ![Granja: guerra de pelotazos entre peluches](screenshots/granja.png) 🧸 **Granja** | |
 
 ## Escenarios
 
-El botón de escenario del HUD abre un **selector con la lista completa** para saltar directo a cualquiera de los seis:
+El botón de escenario del HUD abre un **selector con la lista completa** para saltar directo a cualquiera de los siete:
 
 | Escenario | Qué pasa |
 |-----------|----------|
@@ -26,6 +27,7 @@ El botón de escenario del HUD abre un **selector con la lista completa** para s
 | 🏹 **Arquero** | Un arquero medieval dispara flechas a un **blanco de aros sobre un montículo de paja**, en un bosque con aldea, molino y fogata. La flecha vuela orientada a su trayectoria y queda clavada al acertar; pegarle a la paja es fallo. |
 | ⚽ **Fútbol** | Tiro libre: un jugador con la 10 patea al **arco con red**, custodiado por un **arquero que ataja** (cambia de palo por nivel). Con el nivel aparece una **barrera de rivales** cada vez más larga y **el arco se achica**. Barrera, arquero o palo = fallo. |
 | 🚗 **Auto** | Salto acrobático en un desierto del viejo oeste: el auto toma una **rampa** — que se inclina con el Ángulo y gira con el Giro — y tiene que **pasar volando por dentro de un aro elevado**. La Fuerza es la velocidad; el aro sube y se gira con el nivel, y rozar el borde es fallo. |
+| 🧸 **Granja** | Guerra de pelotazos entre dos peluches, como el GORILLA.BAS original: la **vaquita grandota** (blanca con manchas marrones) de un lado y el **perrito marrón** del otro se tiran una **pelota de playa** — y **cuando uno le pega al otro, el que ligó el pelotazo pasa a tirar**. Todo en una granja con granero, silo, molino, tractor, corral con ovejas, chanchos, gallinas, girasoles y una **laguna con patitos** (si la pelota cae ahí, ¡splash!). |
 
 ## Cómo jugar
 
@@ -62,7 +64,8 @@ Desde el navegador, el botón **⛶ Pantalla** pone el juego en pantalla complet
 - **three.js r147** vendoreado (`vendor/three.min.js` + `vendor/OrbitControls.js`): no necesita internet ni CDN.
 - Render: sombras suaves (PCF), niebla atmosférica que empalma con la cúpula de cielo con gradiente, tone mapping ACES, pixel ratio adaptado, viñeta CSS.
 - **Física determinista**: integración de Euler con **subpasos fijos de 1/120 s** — la trayectoria es idéntica a cualquier framerate — y aciertos decididos **interpolando el cruce del plano del blanco entre pasos** (aro horizontal, disco girado, línea de gol o aro vertical, según el escenario).
-- Entornos 100 % procedurales, regenerados por nivel: ciudad (edificios con ventanas iluminadas, farolas, autos, grúa, puente, helicóptero patrullando, vapor, neón), selva (árboles, palmeras, cascada animada, laguna, mariposas, pájaros, bruma), estadio compartido (tribunas en U con público de puntos, flashes de cámaras, banderines, **marcador en vivo con nivel y tiros**, banderas), bosque medieval (aldea con humo en las chimeneas, molino girando, ovejas, mercado, pozo, fogata), desierto (mesetas, cactus, cuervos, rodadoras que ruedan con el viento, cartel GRAN SALTO).
+- Entornos 100 % procedurales, regenerados por nivel: ciudad (edificios con ventanas iluminadas, farolas, autos, grúa, puente, helicóptero patrullando, vapor, neón), selva (árboles, palmeras, cascada animada, laguna, mariposas, pájaros, bruma), estadio compartido (tribunas en U con público de puntos, flashes de cámaras, banderines, **marcador en vivo con nivel y tiros**, banderas), bosque medieval (aldea con humo en las chimeneas, molino girando, ovejas, mercado, pozo, fogata), desierto (mesetas, cactus, cuervos, rodadoras que ruedan con el viento, cartel GRAN SALTO), granja (granero, silo, molino con aspas girando, corral con animalitos, huerta, espantapájaros, girasoles y laguna con patitos nadando).
+- En la **Granja** el tiro es **bidireccional**: el peluche que tira cambia según quién ligó el último pelotazo, así que la física, la guía de puntería y el indicador de ángulo funcionan igual hacia la derecha (vaquita) que hacia la izquierda (perrito).
 - Personajes y blancos modelados por código, con caras, ropa y accesorios propios; proyectiles que giran en vuelo (banana/pelotas/piedra) o vuelan orientados a la trayectoria (flecha/auto).
 - Efectos: nubes que derivan, estrellas fugaces, partículas de festejo y de impacto, screen-shake, estela aditiva, hojitas de viento.
 - **Mobile-first**: `viewport-fit=cover` + safe areas, cámara que se reencuadra al rotar el teléfono, panel compacto en vertical (~13 % de la pantalla), botones táctiles grandes, vibración háptica.

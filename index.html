@@ -513,7 +513,7 @@
       moveMsg: "Más lejos, más barrera y arco más chico 😅 ⚽",
     },
     auto: {
-      name: "Auto", emoji: "🚗", next: "ciudad",
+      name: "Auto", emoji: "🚗", next: "granja",
       fog: 0x8a5038,
       skyStops: [[0, "#140812"], [0.26, "#3a1430"], [0.44, "#8a3a34"], [0.52, "#c9703a"], [1, "#c9703a"]],
       groundColor: 0x5d3f22,
@@ -538,6 +538,20 @@
       sub: "Bosque medieval: clavá la flecha en el blanco 🎯",
       moveMsg: "El blanco se movió… apuntá de nuevo 🏹",
     },
+    granja: {
+      name: "Granja", emoji: "🧸", next: "ciudad",
+      fog: 0x7a6a52,
+      skyStops: [[0, "#0c1424"], [0.26, "#274468"], [0.44, "#8a6a7a"], [0.52, "#d99a55"], [1, "#d99a55"]],
+      groundColor: 0x27430f,
+      // el lanzador cambia por turno ("cow" ↔ "pup"): lo actualiza placeLevel
+      thrower: "cow", projectile: "beach", target: "plush", targetMesh: "plush",
+      handOffset: { x: 4.6, y: 11.4 },
+      rimR: 0,
+      randomEnv: false,
+      throwLabel: "🏐 ¡LANZAR!",
+      sub: "¡Guerra de pelotazos entre peluches! El que la liga, tira 🧸",
+      moveMsg: "¡Pelotazo! Ahora tira el otro peluche 🧸",
+    },
   };
 
   const state = {
@@ -553,6 +567,8 @@
     time: 0,
     armUp: 0,
     gorillaYaw: 0,               // giro animado del lanzador (radianes)
+    dir: 1,                      // sentido del tiro: 1 = hacia +x, -1 = hacia -x (granja)
+    farm: { turn: "cow" },       // en la granja tira el peluche que ligó el último pelotazo
     thrower: { x: -38, z: 0 },
     basket: { x: 20, z: 0, baseY: 0, rimY: CFG.basketH, pedestalH: 0, rimR: 3.1 },
     gk: { z: 0, half: 1.8, h: 7 },       // arquero de fútbol
@@ -680,6 +696,9 @@
     } else if (kind === "soccer") {
       plop(140, 70, 0.09, 0.4);                 // ¡pum! del botín
       whoosh(0.3, 250, 900, 0.26);
+    } else if (kind === "beach") {
+      plop(420, 180, 0.1, 0.3);                 // ¡toing! de pelota inflable
+      whoosh(0.32, 320, 1100, 0.22);
     } else if (kind === "car") {
       // motor acelerando
       beep(85, 0.45, "sawtooth", 0.16);
@@ -715,6 +734,11 @@
       // la red + rugido de la tribuna
       whoosh(0.18, 1800, 600, 0.25, 0, "bandpass", 2);
       whoosh(1.2, 350, 900, 0.35, 0.12, "bandpass", 0.6);
+    } else if (targetMesh === "plush") {
+      // ¡boing! del pelotazo blandito contra el peluche
+      plop(520, 130, 0.18, 0.4);
+      plop(300, 95, 0.14, 0.25, 0.12);
+      whoosh(0.25, 650, 200, 0.2, 0.05, "lowpass");
     } else {
       // plop en el mimbre
       plop(330, 85, 0.2, 0.32);
@@ -2212,6 +2236,372 @@
     }
   }
 
+  // ---------- granja con laguna ----------
+  const FARM_LAKE = { x: 58, z: -24, rx: 10, rz: 6.5 };
+  function buildFarm(group) {
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b4a26, roughness: 0.95 });
+    const barnRed = new THREE.MeshStandardMaterial({ color: 0xa8342a, roughness: 0.85 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0xf2ede0, roughness: 0.8 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x5a3a2a, roughness: 0.9 });
+    const oakMats = [0x2a5e2a, 0x35702f, 0x3f7a35].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }));
+
+    // granero rojo con techo a dos aguas y puerta con cruz blanca
+    const barn = new THREE.Group();
+    const body = new THREE.Mesh(boxGeo, barnRed);
+    body.scale.set(20, 11, 14);
+    body.position.y = 5.5;
+    body.castShadow = true;
+    barn.add(body);
+    for (const sy of [1, 10]) {
+      const strip = new THREE.Mesh(boxGeo, trimMat);
+      strip.scale.set(20.3, 0.5, 14.3);
+      strip.position.y = sy;
+      barn.add(strip);
+    }
+    for (const rs of [-1, 1]) {
+      const slope = new THREE.Mesh(boxGeo, roofMat);
+      slope.scale.set(11.6, 0.7, 15.6);
+      slope.rotation.z = -rs * 0.72;   // las dos caídas se juntan en la cumbrera
+      slope.position.set(rs * 4.4, 14.4, 0);
+      slope.castShadow = true;
+      barn.add(slope);
+    }
+    const gable = new THREE.Mesh(new THREE.ConeGeometry(9.2, 6.4, 4), barnRed);
+    gable.scale.z = 0.72;
+    gable.rotation.y = Math.PI / 4;
+    gable.position.y = 13.9;
+    barn.add(gable);
+    const door = new THREE.Mesh(boxGeo, trimMat);
+    door.scale.set(6.5, 7, 0.4);
+    door.position.set(0, 3.5, 7.1);
+    barn.add(door);
+    const doorIn = new THREE.Mesh(boxGeo, barnRed);
+    doorIn.scale.set(5.7, 6.2, 0.42);
+    doorIn.position.set(0, 3.5, 7.15);
+    barn.add(doorIn);
+    for (const dx of [-1, 1]) {
+      const cross = new THREE.Mesh(boxGeo, trimMat);
+      cross.scale.set(0.7, 8, 0.44);
+      cross.rotation.z = dx * 0.72;
+      cross.position.set(0, 3.5, 7.2);
+      barn.add(cross);
+    }
+    const loft = new THREE.Mesh(boxGeo, trimMat);
+    loft.scale.set(2.6, 2.6, 0.4);
+    loft.position.set(0, 12.2, 6.2);
+    barn.add(loft);
+    barn.position.set(14, 0, -52);
+    barn.rotation.y = -0.12;
+    group.add(barn);
+
+    // silo plateado con cúpula
+    const silo = new THREE.Group();
+    const siloMat = new THREE.MeshStandardMaterial({ color: 0x9aa2ac, roughness: 0.5, metalness: 0.5 });
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 17, 14), siloMat);
+    tube.position.y = 8.5;
+    tube.castShadow = true;
+    silo.add(tube);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(3.4, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), siloMat);
+    dome.position.y = 17;
+    silo.add(dome);
+    silo.position.set(31, 0, -50);
+    group.add(silo);
+
+    // molino americano de agua: torre + rueda de aspas (gira en el loop)
+    const millTower = new THREE.Group();
+    for (const [mx, mz] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.22, 15, 6), woodMat);
+      leg.position.set(mx * 0.7, 7.5, mz * 0.7);
+      leg.rotation.x = mz * 0.09;
+      leg.rotation.z = -mx * 0.09;
+      millTower.add(leg);
+    }
+    const wheel = new THREE.Group();
+    wheel.position.set(0, 15.2, 1.1);
+    const hubMat = new THREE.MeshStandardMaterial({ color: 0xd8ccb0, roughness: 0.8, side: THREE.DoubleSide });
+    for (let i = 0; i < 8; i++) {
+      const blade = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 3.4), hubMat);
+      blade.position.y = 2.4;
+      const holder = new THREE.Group();
+      holder.rotation.z = i * Math.PI / 4;
+      holder.add(blade);
+      wheel.add(holder);
+    }
+    millTower.add(wheel);
+    const vane = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.4), hubMat);
+    vane.position.set(0, 15.2, -2.2);
+    vane.rotation.y = Math.PI / 2;
+    millTower.add(vane);
+    millTower.position.set(-58, 0, -44);
+    group.add(millTower);
+    group.userData.mill = wheel;
+
+    // laguna en el prado del frente, con juncos y patitos
+    const lake = new THREE.Mesh(
+      new THREE.CircleGeometry(1, 26),
+      new THREE.MeshStandardMaterial({ color: 0x2a6a8a, roughness: 0.12, metalness: 0.55 })
+    );
+    lake.rotation.x = -Math.PI / 2;
+    lake.scale.set(FARM_LAKE.rx, FARM_LAKE.rz, 1);
+    lake.position.set(FARM_LAKE.x, 0.1, FARM_LAKE.z);
+    group.add(lake);
+    const shore = new THREE.Mesh(
+      new THREE.CircleGeometry(1, 26),
+      new THREE.MeshStandardMaterial({ color: 0x8a7a4a, roughness: 1 })
+    );
+    shore.rotation.x = -Math.PI / 2;
+    shore.scale.set(FARM_LAKE.rx + 1.6, FARM_LAKE.rz + 1.4, 1);
+    shore.position.set(FARM_LAKE.x, 0.05, FARM_LAKE.z);
+    group.add(shore);
+    const reedMat = new THREE.MeshStandardMaterial({ color: 0x3f7a35, roughness: 0.9 });
+    for (let i = 0; i < 12; i++) {
+      const a = rand(0, Math.PI * 2);
+      const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, rand(1.2, 2.2), 5), reedMat);
+      reed.position.set(
+        FARM_LAKE.x + Math.cos(a) * (FARM_LAKE.rx + rand(0.4, 1.6)),
+        reed.geometry.parameters.height / 2,
+        FARM_LAKE.z + Math.sin(a) * (FARM_LAKE.rz + rand(0.3, 1.2))
+      );
+      reed.rotation.z = rand(-0.15, 0.15);
+      group.add(reed);
+    }
+    const duckWhite = new THREE.MeshStandardMaterial({ color: 0xf2eee2, roughness: 0.9 });
+    const duckBeak = new THREE.MeshStandardMaterial({ color: 0xe8892e, roughness: 0.7 });
+    const ducks = [];
+    for (let i = 0; i < 3; i++) {
+      const duck = new THREE.Group();
+      const bd = sphere(0.55, duckWhite, 1.35, 0.8, 1);
+      bd.position.y = 0.35;
+      duck.add(bd);
+      const hd = sphere(0.3, duckWhite);
+      hd.position.set(0.62, 0.85, 0);
+      duck.add(hd);
+      const beak = sphere(0.14, duckBeak, 1.6, 0.6, 1);
+      beak.position.set(0.95, 0.82, 0);
+      duck.add(beak);
+      group.add(duck);
+      ducks.push({ m: duck, ph: i * 2.1, r: rand(3, FARM_LAKE.rz - 2.4), cx: FARM_LAKE.x + rand(-4, 4), cz: FARM_LAKE.z });
+    }
+    group.userData.ducks = ducks;
+
+    // corral con cerca y animalitos: ovejas, chanchos y gallinas
+    const penX = -38, penZ = -38;
+    for (let i = 0; i < 14; i++) {
+      const a = i / 14 * Math.PI * 2;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 1.9, 6), woodMat);
+      post.position.set(penX + Math.cos(a) * 13, 0.95, penZ + Math.sin(a) * 9);
+      group.add(post);
+    }
+    for (const ry of [0.75, 1.45]) {
+      const rail = new THREE.Mesh(new THREE.TorusGeometry(1, 0.07, 6, 26), woodMat);
+      rail.rotation.x = -Math.PI / 2;
+      rail.scale.set(13, 9, 1);
+      rail.position.set(penX, ry, penZ);
+      group.add(rail);
+    }
+    const woolMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d8, roughness: 1 });
+    const sheepFace = new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.9 });
+    for (const [sx3, sz3, sr3] of [[-44, -36, 0.4], [-36, -42, 2.4], [-31, -35, 1.2]]) {
+      const sheep = new THREE.Group();
+      const bd = sphere(1.15, woolMat, 1.25, 1, 1);
+      bd.position.y = 1.35;
+      sheep.add(bd);
+      const hd = sphere(0.45, sheepFace);
+      hd.position.set(1.35, 1.5, 0);
+      sheep.add(hd);
+      for (const [lx3, lz3] of [[-0.7, 0.4], [0.7, 0.4], [-0.7, -0.4], [0.7, -0.4]]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.8, 5), sheepFace);
+        leg.position.set(lx3, 0.4, lz3);
+        sheep.add(leg);
+      }
+      sheep.position.set(sx3, 0, sz3);
+      sheep.rotation.y = sr3;
+      group.add(sheep);
+    }
+    const pigMat = new THREE.MeshStandardMaterial({ color: 0xe89aa2, roughness: 0.85 });
+    for (const [px2, pz2, pr2] of [[-42, -44, 1.1], [-33, -44, -0.6]]) {
+      const pig = new THREE.Group();
+      const bd = sphere(1.05, pigMat, 1.35, 0.9, 1);
+      bd.position.y = 1.05;
+      pig.add(bd);
+      const hd = sphere(0.55, pigMat);
+      hd.position.set(1.45, 1.15, 0);
+      pig.add(hd);
+      const snout = sphere(0.22, pigMat, 1.2, 0.9, 0.7);
+      snout.position.set(2, 1.05, 0);
+      pig.add(snout);
+      for (const se of [-0.25, 0.25]) {
+        const ear = sphere(0.16, pigMat, 1, 1.3, 0.5);
+        ear.position.set(1.35, 1.65, se);
+        pig.add(ear);
+      }
+      pig.position.set(px2, 0, pz2);
+      pig.rotation.y = pr2;
+      group.add(pig);
+    }
+    const henMat = new THREE.MeshStandardMaterial({ color: 0xf2ede0, roughness: 0.95 });
+    const combMat = new THREE.MeshStandardMaterial({ color: 0xd03a2e, roughness: 0.7 });
+    for (let i = 0; i < 5; i++) {
+      const hen = new THREE.Group();
+      const bd = sphere(0.42, henMat, 1.15, 1, 0.9);
+      bd.position.y = 0.55;
+      hen.add(bd);
+      const hd = sphere(0.2, henMat);
+      hd.position.set(0.4, 0.95, 0);
+      hen.add(hd);
+      const comb = sphere(0.09, combMat, 1, 1.6, 0.6);
+      comb.position.set(0.4, 1.16, 0);
+      hen.add(comb);
+      const beak = sphere(0.07, duckBeak, 1.7, 0.7, 1);
+      beak.position.set(0.62, 0.93, 0);
+      hen.add(beak);
+      hen.position.set(rand(2, 26), 0, rand(-44, -36));
+      hen.rotation.y = rand(0, Math.PI * 2);
+      group.add(hen);
+    }
+
+    // tractor verde con ruedas grandes
+    const tractor = new THREE.Group();
+    const tBody = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.6 });
+    const tDark = new THREE.MeshStandardMaterial({ color: 0x14181e, roughness: 0.8 });
+    const hood = new THREE.Mesh(boxGeo, tBody);
+    hood.scale.set(4.6, 2, 2.4);
+    hood.position.y = 2.4;
+    hood.castShadow = true;
+    tractor.add(hood);
+    const cab = new THREE.Mesh(boxGeo, tBody);
+    cab.scale.set(2.2, 2.6, 2.4);
+    cab.position.set(-2.6, 3.5, 0);
+    tractor.add(cab);
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 1.6, 6), tDark);
+    pipe.position.set(1.6, 4.2, 0.7);
+    tractor.add(pipe);
+    for (const wz of [-1.35, 1.35]) {
+      const big = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 0.7, 12), tDark);
+      big.rotation.x = Math.PI / 2;
+      big.position.set(-2.6, 1.8, wz);
+      tractor.add(big);
+      const small = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.5, 10), tDark);
+      small.rotation.x = Math.PI / 2;
+      small.position.set(1.7, 1, wz);
+      tractor.add(small);
+    }
+    tractor.position.set(48, 0, -42);
+    tractor.rotation.y = 0.5;
+    group.add(tractor);
+
+    // fardos de heno cilíndricos
+    for (const [hx2, hz2] of [[68, -38], [73, -33], [64, 30], [-62, 26]]) {
+      const bale = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.7, 1.7, 2.6, 12),
+        new THREE.MeshStandardMaterial({ map: strawTexture(), roughness: 1 })
+      );
+      bale.rotation.z = Math.PI / 2;
+      bale.rotation.y = rand(0, Math.PI);
+      bale.position.set(hx2, 1.7, hz2);
+      bale.castShadow = true;
+      group.add(bale);
+    }
+
+    // huerta: surcos de tierra con plantitas
+    const soilMat = new THREE.MeshStandardMaterial({ color: 0x4a3016, roughness: 1 });
+    for (let r = 0; r < 4; r++) {
+      const row = new THREE.Mesh(boxGeo, soilMat);
+      row.scale.set(16, 0.5, 1.4);
+      row.position.set(-56, 0.25, 8 + r * 2.6);
+      group.add(row);
+      for (let p = 0; p < 6; p++) {
+        const plant = new THREE.Mesh(new THREE.SphereGeometry(0.42, 7, 6), oakMats[p % 3]);
+        plant.position.set(-63 + p * 2.8, 0.75, 8 + r * 2.6);
+        plant.scale.y = 0.8;
+        group.add(plant);
+      }
+    }
+
+    // girasoles a lo largo de la cerca del fondo
+    const petalMat = new THREE.MeshStandardMaterial({ color: 0xffd23e, roughness: 0.8, side: THREE.DoubleSide });
+    const sunCore = new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.95 });
+    for (let i = 0; i < 9; i++) {
+      const sx4 = -20 + i * 7 + rand(-1.5, 1.5), sz4 = -33 - rand(0, 2);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 3.4, 5), reedMat);
+      stem.position.set(sx4, 1.7, sz4);
+      group.add(stem);
+      const bloom = new THREE.Group();
+      for (let pt = 0; pt < 8; pt++) {
+        const petal = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.9), petalMat);
+        petal.position.y = 0.62;
+        const hold = new THREE.Group();
+        hold.rotation.z = pt * Math.PI / 4;
+        hold.add(petal);
+        bloom.add(hold);
+      }
+      const core = sphere(0.34, sunCore, 1, 1, 0.5);
+      bloom.add(core);
+      bloom.position.set(sx4, 3.5, sz4);
+      group.add(bloom);
+    }
+
+    // espantapájaros junto a la huerta
+    const scare = new THREE.Group();
+    const pole2 = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 5.4, 6), woodMat);
+    pole2.position.y = 2.7;
+    scare.add(pole2);
+    const armBar = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 4.6, 6), woodMat);
+    armBar.rotation.z = Math.PI / 2;
+    armBar.position.y = 4;
+    scare.add(armBar);
+    const shirt = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({ color: 0x8a3a5a, roughness: 0.9 }));
+    shirt.scale.set(2, 2.4, 1.2);
+    shirt.position.y = 3.6;
+    scare.add(shirt);
+    const strawHead = new THREE.Mesh(
+      new THREE.SphereGeometry(0.75, 10, 8),
+      new THREE.MeshStandardMaterial({ map: strawTexture(), roughness: 1 })
+    );
+    strawHead.position.y = 5.6;
+    scare.add(strawHead);
+    const hat = new THREE.Mesh(new THREE.ConeGeometry(0.95, 1, 8), new THREE.MeshStandardMaterial({ color: 0xc9a84a, roughness: 1 }));
+    hat.position.y = 6.35;
+    scare.add(hat);
+    scare.position.set(-46, 0, 12);
+    group.add(scare);
+
+    // árboles alrededor del campo
+    const trunkMat2 = new THREE.MeshStandardMaterial({ color: 0x5a4028, roughness: 0.95 });
+    for (let i = 0; i < 26; i++) {
+      const x = rand(-140, 140), z = rand(-95, 52);
+      if (x > -58 && x < 58 && z > -30 && z < 26) continue;                 // corredor de juego
+      if (z > 26 && x > -90 && x < 90) continue;                            // no tapar la cámara
+      const dLx = (x - FARM_LAKE.x) / (FARM_LAKE.rx + 3), dLz = (z - FARM_LAKE.z) / (FARM_LAKE.rz + 3);
+      if (dLx * dLx + dLz * dLz < 1) continue;                              // no dentro de la laguna
+      const th = rand(3.5, 7);
+      const tree = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.85, th, 7), trunkMat2);
+      trunk.position.y = th / 2;
+      trunk.castShadow = true;
+      tree.add(trunk);
+      for (let b = 0; b < 3; b++) {
+        const blob = new THREE.Mesh(new THREE.SphereGeometry(rand(2, 3.2), 12, 9), oakMats[(Math.random() * oakMats.length) | 0]);
+        blob.position.set(rand(-1.3, 1.3), th + rand(-0.4, 1.8), rand(-1.3, 1.3));
+        blob.castShadow = true;
+        tree.add(blob);
+      }
+      tree.position.set(x, 0, z);
+      tree.scale.setScalar(rand(0.8, 1.6));
+      group.add(tree);
+    }
+
+    // margaritas en el pasto
+    const flowerMats = [0xfff2f2, 0xffd54a, 0xff9dc8].map(c => new THREE.MeshBasicMaterial({ color: c }));
+    for (let i = 0; i < 60; i++) {
+      const x = rand(-90, 90), z = rand(-30, 26);
+      if (x > -52 && x < 52 && Math.abs(z) < 6) continue;   // corredor de tiro
+      const f = new THREE.Mesh(new THREE.SphereGeometry(rand(0.14, 0.26), 6, 5), flowerMats[i % 3]);
+      f.position.set(x, 0.35, z);
+      group.add(f);
+    }
+  }
+
   // ---------- cancha de fútbol ----------
   function pitchTexture() {
     const W = 1024, H = 640;
@@ -2503,6 +2893,7 @@
     if (sc.thrower === "player") buildCourt(envGroup);
     else if (sc.thrower === "futbol") buildPitch(envGroup);
     else if (sc.thrower === "car") buildDesert(envGroup);
+    else if (state.scenKey === "granja") buildFarm(envGroup);
     else if (state.scenKey === "selva") buildJungle(envGroup);
     else if (state.scenKey === "arquero") buildForest(envGroup);
     else buildCity(envGroup);
@@ -3131,8 +3522,199 @@
   ringGroup.add(ringBase);
   scene.add(ringGroup);
 
-  const THROWERS = { gorilla, player, police, archer, futbol, car: carBase };
-  const ARMS = { gorilla: gorillaArm, player: playerArm, police: policeArm, archer: archerArm, futbol: futbolLeg, car: new THREE.Group() };
+  // ---------- peluches de la granja ----------
+  // La vaquita: peluche GRANDE blanco con manchas marrones, melena y flequillo
+  // de peluche marrón, orejas y hocico marrones y ojos de botón.
+  function cowSpotTexture() {
+    const c = document.createElement("canvas");
+    c.width = 256; c.height = 128;
+    const g = c.getContext("2d");
+    g.fillStyle = "#f4eee2";
+    g.fillRect(0, 0, 256, 128);
+    const spots = [[28, 34, 20, 14], [80, 90, 24, 16], [150, 30, 18, 13], [205, 78, 22, 15],
+                   [55, 108, 16, 10], [120, 64, 14, 11], [235, 24, 15, 12], [175, 108, 18, 11], [10, 80, 13, 10]];
+    g.fillStyle = "#6b4226";
+    for (const [sx, sy, rx, ry] of spots) {
+      g.beginPath();
+      g.ellipse(sx, sy, rx, ry, 0.4, 0, Math.PI * 2);
+      g.fill();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  }
+  const cowSpotMat = new THREE.MeshStandardMaterial({ map: cowSpotTexture(), roughness: 1 });
+  const cowBrown = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 1 });
+  const cowMane = new THREE.MeshStandardMaterial({ color: 0x5a3419, roughness: 1 });
+  const buttonMat = new THREE.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.25 });
+
+  const cowPlush = new THREE.Group();
+  {
+    const body = sphere(3.0, cowSpotMat, 1.06, 1.22, 0.95);
+    body.position.set(0, 4.5, 0);
+    cowPlush.add(body);
+    // patas de peluche sentado con almohadillas marrones
+    for (const sx of [-1.9, 1.9]) {
+      const leg = sphere(1.35, cowSpotMat, 1, 0.85, 1.25);
+      leg.position.set(sx, 1.25, 1.15);
+      cowPlush.add(leg);
+      const pad = sphere(0.72, cowBrown, 1.05, 0.8, 0.6);
+      pad.position.set(sx, 1.15, 2.55);
+      cowPlush.add(pad);
+    }
+    const head = sphere(2.1, cowSpotMat, 1.05, 0.95, 0.95);
+    head.position.set(0, 9.9, 0.35);
+    cowPlush.add(head);
+    // hocico marrón con narinas
+    const muzzle = sphere(1.05, cowBrown, 1.3, 0.8, 0.75);
+    muzzle.position.set(0, 9.1, 1.95);
+    cowPlush.add(muzzle);
+    for (const sx of [-0.38, 0.38]) {
+      const nostril = sphere(0.1, buttonMat);
+      nostril.position.set(sx, 9.15, 2.62);
+      cowPlush.add(nostril);
+    }
+    // ojos de botón
+    for (const sx of [-0.78, 0.78]) {
+      const eye = sphere(0.24, buttonMat);
+      eye.position.set(sx, 10.45, 2.05);
+      cowPlush.add(eye);
+    }
+    // orejas marrones caídas
+    for (const sx of [-2.25, 2.25]) {
+      const ear = sphere(0.68, cowMane, 1.15, 0.8, 0.45);
+      ear.position.set(sx, 10.55, 0.3);
+      ear.rotation.z = sx > 0 ? -0.5 : 0.5;
+      cowPlush.add(ear);
+    }
+    // melena/flequillo de peluche marrón sobre la cabeza y la nuca
+    for (let i = 0; i < 6; i++) {
+      const tuft = sphere(0.72 - i * 0.04, cowMane, 1.15, 0.85, 1);
+      tuft.position.set((i % 2 ? 0.4 : -0.4) * (i > 0 ? 1 : 0), 11.6 - i * 0.22, 1.15 - i * 0.62);
+      cowPlush.add(tuft);
+    }
+    for (const sx of [-1.15, 1.15]) {
+      const tuft = sphere(0.55, cowMane, 1, 0.8, 1);
+      tuft.position.set(sx, 11.25, 0.15);
+      cowPlush.add(tuft);
+    }
+    // cola con pompón marrón
+    const tail = sphere(0.55, cowMane);
+    tail.position.set(0.4, 3.2, -3.05);
+    cowPlush.add(tail);
+    // brazo izquierdo relajado
+    const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.66, 2.7, 6, 12), cowSpotMat);
+    armL.geometry.translate(0, -1.9, 0);
+    armL.position.set(-2.95, 7.9, 0.4);
+    armL.rotation.z = -0.4;
+    armL.castShadow = true;
+    cowPlush.add(armL);
+    const handL = sphere(0.82, cowBrown);
+    handL.position.set(-4.15, 5.5, 0.6);
+    cowPlush.add(handL);
+  }
+  const cowArm = new THREE.Group();
+  cowArm.position.set(2.95, 8.0, 0.4);
+  {
+    const armR = new THREE.Mesh(new THREE.CapsuleGeometry(0.66, 2.7, 6, 12), cowSpotMat);
+    armR.geometry.translate(0, -1.9, 0);
+    armR.castShadow = true;
+    cowArm.add(armR);
+  }
+  const cowHand = sphere(0.82, cowBrown);
+  cowHand.position.set(0, -3.9, 0);
+  cowArm.add(cowHand);
+  cowPlush.add(cowArm);
+  cowPlush.visible = false;
+  scene.add(cowPlush);
+
+  // El perrito: peluche marrón caramelo con cara y panza crema, orejas y
+  // patas azul oscuro, nariz negra grandota y collar naranja.
+  const pupBody = new THREE.MeshStandardMaterial({ color: 0xb5722e, roughness: 1 });
+  const pupCream = new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 1 });
+  const pupDark = new THREE.MeshStandardMaterial({ color: 0x272a38, roughness: 0.95 });
+  const pupCollar = new THREE.MeshStandardMaterial({ color: 0xd96a1e, roughness: 0.7 });
+
+  const pupPlush = new THREE.Group();
+  {
+    const body = sphere(1.95, pupBody, 1.05, 1.15, 0.95);
+    body.position.set(0, 3.1, 0);
+    pupPlush.add(body);
+    const belly = sphere(1.35, pupCream, 1, 1.1, 0.6);
+    belly.position.set(0, 2.9, 1.15);
+    pupPlush.add(belly);
+    // patas azul oscuro
+    for (const sx of [-1.05, 1.05]) {
+      const foot = sphere(0.6, pupDark, 1.1, 0.6, 1.4);
+      foot.position.set(sx, 0.42, 0.75);
+      pupPlush.add(foot);
+    }
+    const head = sphere(1.6, pupBody, 1.05, 0.95, 1);
+    head.position.set(0, 6.6, 0.25);
+    pupPlush.add(head);
+    const facePatch = sphere(1.05, pupCream, 1.05, 0.9, 0.62);
+    facePatch.position.set(0, 6.2, 1.4);
+    pupPlush.add(facePatch);
+    const nose = sphere(0.36, buttonMat, 1.2, 0.85, 0.8);
+    nose.position.set(0, 6.4, 2.15);
+    pupPlush.add(nose);
+    for (const sx of [-0.62, 0.62]) {
+      const eye = sphere(0.22, buttonMat);
+      eye.position.set(sx, 7.1, 1.6);
+      pupPlush.add(eye);
+    }
+    // orejas azul oscuro con interior crema
+    for (const sx of [-1.45, 1.45]) {
+      const ear = sphere(0.58, pupDark, 1, 1.3, 0.42);
+      ear.position.set(sx, 7.9, 0.1);
+      ear.rotation.z = sx > 0 ? -0.35 : 0.35;
+      pupPlush.add(ear);
+      const earIn = sphere(0.32, pupCream, 1, 1.2, 0.3);
+      earIn.position.set(sx * 0.98, 7.85, 0.32);
+      earIn.rotation.z = ear.rotation.z;
+      pupPlush.add(earIn);
+    }
+    // collar naranja
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(1.12, 0.13, 8, 18), pupCollar);
+    collar.rotation.x = Math.PI / 2;
+    collar.position.set(0, 5.25, 0.18);
+    pupPlush.add(collar);
+    const tag = sphere(0.2, pupCollar);
+    tag.position.set(0, 4.95, 1.25);
+    pupPlush.add(tag);
+    // cola
+    const tail = sphere(0.42, pupBody, 1, 1.3, 1);
+    tail.position.set(0.3, 2.6, -1.95);
+    tail.rotation.x = 0.6;
+    pupPlush.add(tail);
+    // brazo derecho relajado (tira con el izquierdo, hacia -x)
+    const armR2 = new THREE.Mesh(new THREE.CapsuleGeometry(0.44, 1.9, 6, 12), pupBody);
+    armR2.geometry.translate(0, -1.35, 0);
+    armR2.position.set(1.75, 4.6, 0.3);
+    armR2.rotation.z = 0.4;
+    armR2.castShadow = true;
+    pupPlush.add(armR2);
+    const pawR = sphere(0.52, pupCream);
+    pawR.position.set(2.6, 3.05, 0.4);
+    pupPlush.add(pawR);
+  }
+  const pupArm = new THREE.Group();
+  pupArm.position.set(-1.75, 4.7, 0.3);
+  {
+    const armL2 = new THREE.Mesh(new THREE.CapsuleGeometry(0.44, 1.9, 6, 12), pupBody);
+    armL2.geometry.translate(0, -1.35, 0);
+    armL2.castShadow = true;
+    pupArm.add(armL2);
+  }
+  const pupHand = sphere(0.52, pupCream);
+  pupHand.position.set(0, -2.75, 0);
+  pupArm.add(pupHand);
+  pupPlush.add(pupArm);
+  pupPlush.visible = false;
+  scene.add(pupPlush);
+
+  const THROWERS = { gorilla, player, police, archer, futbol, car: carBase, cow: cowPlush, pup: pupPlush };
+  const ARMS = { gorilla: gorillaArm, player: playerArm, police: policeArm, archer: archerArm, futbol: futbolLeg, car: new THREE.Group(), cow: cowArm, pup: pupArm };
   const activeThrower = () => THROWERS[scen().thrower];
   const activeArm = () => ARMS[scen().thrower];
 
@@ -3241,6 +3823,34 @@
     return m;
   }
 
+  function beachTexture() {
+    const c = document.createElement("canvas");
+    c.width = 256; c.height = 128;
+    const g = c.getContext("2d");
+    const cols = ["#e84a3a", "#f4f1e8", "#ffd54a", "#f4f1e8", "#3a7ce8", "#f4f1e8"];
+    for (let i = 0; i < 6; i++) {
+      g.fillStyle = cols[i];
+      g.fillRect(i * 256 / 6, 0, 256 / 6 + 1, 128);
+    }
+    g.strokeStyle = "rgba(30,20,10,.35)";
+    g.lineWidth = 3;
+    for (let i = 1; i < 6; i++) {
+      g.beginPath(); g.moveTo(i * 256 / 6, 0); g.lineTo(i * 256 / 6, 128); g.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  }
+  function makeBeachBall(scale = 1) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(1.15, 20, 16),
+      new THREE.MeshStandardMaterial({ map: beachTexture(), roughness: 0.45 })
+    );
+    m.castShadow = true;
+    m.scale.setScalar(scale);
+    return m;
+  }
+
   function makeRock(scale = 1) {
     const m = new THREE.Mesh(
       new THREE.IcosahedronGeometry(0.85, 1),
@@ -3271,6 +3881,10 @@
   soccerFly.rotation.order = "YZX";
   soccerFly.visible = false;
   scene.add(soccerFly);
+  const beachFly = makeBeachBall(1.15);
+  beachFly.rotation.order = "YZX";
+  beachFly.visible = false;
+  scene.add(beachFly);
 
   const bananaHand = makeBanana(0.7);
   bananaHand.position.set(0, -0.4, 0.9);
@@ -3289,9 +3903,13 @@
   const soccerRest = makeSoccerBall(1.0);
   soccerRest.position.set(2.2, 0.95, 0);
   futbol.add(soccerRest);
+  // la pelota de playa va en la mano del peluche que tira (placeLevel la cambia de mano)
+  const beachHand = makeBeachBall(0.85);
+  beachHand.position.set(0, -0.7, 0.9);
+  cowHand.add(beachHand);
 
-  const FLY = { banana: bananaFly, ball: ballFly, rock: rockFly, arrow: arrowFly, soccer: soccerFly, car: carFly };
-  const HAND = { banana: bananaHand, ball: ballHand, rock: rockHand, arrow: arrowHand, soccer: soccerRest, car: carRest };
+  const FLY = { banana: bananaFly, ball: ballFly, rock: rockFly, arrow: arrowFly, soccer: soccerFly, car: carFly, beach: beachFly };
+  const HAND = { banana: bananaHand, ball: ballHand, rock: rockHand, arrow: arrowHand, soccer: soccerRest, car: carRest, beach: beachHand };
   const flyItem = () => FLY[scen().projectile];
   const handItem = () => HAND[scen().projectile];
 
@@ -3629,12 +4247,15 @@
     scene.add(d);
     aimDots.push(d);
   }
+  // rumbo real del tiro: en la granja el peluche de la derecha tira hacia -x
+  const throwHeading = (yaw) => state.dir < 0 ? Math.PI - yaw : yaw;
   function launchPoint(yaw) {
     const ho = scen().handOffset;
+    const a = throwHeading(yaw);
     return {
-      x: state.thrower.x + ho.x * Math.cos(yaw),
+      x: state.thrower.x + ho.x * Math.cos(a),
       y: ho.y,
-      z: state.thrower.z - ho.x * Math.sin(yaw),
+      z: state.thrower.z - ho.x * Math.sin(a),
     };
   }
   function updateAim() {
@@ -3645,7 +4266,8 @@
     const p = launchPoint(yaw);
     let { x, y, z } = p;
     const h = Math.cos(angle) * v0;
-    let vx = h * Math.cos(yaw), vz = -h * Math.sin(yaw), vy = Math.sin(angle) * v0;
+    const hd = throwHeading(yaw);
+    let vx = h * Math.cos(hd), vz = -h * Math.sin(hd), vy = Math.sin(angle) * v0;
     const step = 0.07;
     for (let i = 0; i < AIM_N; i++) {
       vx += state.wind * step;
@@ -3657,7 +4279,7 @@
       aimDots[i].visible = show;
       aimDots[i].position.set(x, y, z);
     }
-    updateAngleGizmo(show, +ui.angle.value, yaw, p);
+    updateAngleGizmo(show, +ui.angle.value, hd, p);
   }
 
   // ------------------------------------------------ indicador de ángulo 📐
@@ -3804,11 +4426,40 @@
     const sc = scen();
     const k = state.basket;
     k.rimR = sc.rimR;
+    state.dir = 1;
 
     // el lanzador retrocede a medida que sube el nivel
     const back = Math.min(12, (state.level - 1) * 2);
 
-    if (sc.target === "basket") {
+    if (sc.target === "plush") {
+      // granja: tira el peluche que ligó el último pelotazo; el otro es el blanco
+      const big = state.farm.turn === "cow";
+      sc.thrower = state.farm.turn;
+      sc.handOffset = big ? { x: 4.6, y: 11.4 } : { x: 3.1, y: 6.6 };
+      sc.moveMsg = big ? "¡Ahora tira la vaquita! 🐄" : "¡Ahora tira el perrito! 🐶";
+      state.dir = big ? 1 : -1;
+      const d = state.dir;
+      state.thrower.x = -d * (34 + back);
+      state.thrower.z = 0;
+      k.x = d * rand(12, 44);
+      const zAmp = Math.min(22, 2 + state.level * 4);
+      k.z = rand(-zAmp, Math.min(zAmp, 16));
+      k.rot = 0;
+      k.pedestalH = 0;
+      k.baseY = 0;
+      // el blanco es el cuerpo del otro peluche (cilindro aproximado)
+      k.bodyR = big ? 2.5 : 3.6;
+      k.bodyH = big ? 8.6 : 13.2;
+      k.rimY = k.bodyH + 0.4;
+      pedestal.visible = pedestalCap.visible = false;
+      const target = big ? pupPlush : cowPlush;
+      target.position.set(k.x, 0, k.z);
+      target.rotation.y = 0;
+      // la pelota de playa pasa a la mano del que tira
+      const hand = big ? cowHand : pupHand;
+      hand.add(beachHand);
+      beachHand.position.set(0, big ? -0.7 : -0.5, big ? 0.9 : 0.7);
+    } else if (sc.target === "basket") {
       // el blanco se mueve, el lanzador se aleja
       state.thrower.x = -34 - back;
       state.thrower.z = 0;
@@ -3951,7 +4602,7 @@
     setWind();
     clearTrails();
     state.banana = null;
-    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = soccerFly.visible = carFly.visible = false;
+    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = soccerFly.visible = carFly.visible = beachFly.visible = false;
     handItem().visible = true;
     state.celebrating = false;
     ui.levelTxt.textContent = state.level;
@@ -3972,6 +4623,8 @@
     archer.visible = sc.thrower === "archer";
     futbol.visible = sc.thrower === "futbol";
     carBase.visible = sc.thrower === "car";
+    // en la granja los dos peluches están siempre en escena (uno tira, el otro liga)
+    cowPlush.visible = pupPlush.visible = state.scenKey === "granja";
     basketGroup.visible = sc.targetMesh === "wicker";
     trashGroup.visible = sc.targetMesh === "trash";
     hoopGroup.visible = sc.targetMesh === "hoop";
@@ -4001,6 +4654,8 @@
     state.tries = 0;
     ui.triesTxt.textContent = "0";
     state.gorillaYaw = 0;
+    state.farm.turn = "cow";   // la granja siempre arranca tirando la vaquita
+    if (target === "granja") SCENARIOS.granja.thrower = "cow";
     applyScenario();
     newLevel(true);
     ui.levelTxt.textContent = "1";
@@ -4025,11 +4680,12 @@
     const v0 = (+ui.power.value) * CFG.powerToV;
     const p = launchPoint(yaw);
     const h = Math.cos(angle) * v0;
+    const hd = throwHeading(yaw);
     state.banana = {
       x: p.x, y: p.y, z: p.z,
       px: p.x, py: p.y, pz: p.z,
-      vx: h * Math.cos(yaw),
-      vz: -h * Math.sin(yaw),
+      vx: h * Math.cos(hd),
+      vz: -h * Math.sin(hd),
       vy: Math.sin(angle) * v0,
     };
     state.tries++;
@@ -4050,7 +4706,7 @@
   function endThrow(hit) {
     commitTrailToLast();
     state.banana = null;
-    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = soccerFly.visible = carFly.visible = false;
+    bananaFly.visible = ballFly.visible = rockFly.visible = arrowFly.visible = soccerFly.visible = carFly.visible = beachFly.visible = false;
     if (hit) {
       state.celebrating = true;
       const r = rec(state.scenKey);
@@ -4065,7 +4721,10 @@
                      : scen().targetMesh === "ring" ? "🚗 ¡SALTO PERFECTO!"
                      : scen().target === "bullseye" ? "🏹 ¡EN EL BLANCO!"
                      : scen().target === "goal" ? "⚽ ¡GOOOOL!"
+                     : scen().target === "plush" ? "🧸 ¡PELOTAZO!"
                      : "🎯 ¡EMBOCASTE!";
+      // en la granja, el peluche que ligó el pelotazo tira en el próximo nivel
+      if (scen().target === "plush") state.farm.turn = state.farm.turn === "cow" ? "pup" : "cow";
       showBanner(hitTitle, isRecord ? `Nivel ${state.level} superado · 🏆 ¡récord nuevo!` : `Nivel ${state.level} superado`, 1600);
       setTimeout(() => { state.level++; newLevel(); }, 1900);
     } else {
@@ -4112,6 +4771,30 @@
     const sc = scen();
     const k = state.basket;
     const dh = Math.hypot(b.x - k.x, b.z - k.z);
+
+    // granja: el blanco es el cuerpo del otro peluche
+    if (sc.target === "plush") {
+      if (b.y < k.bodyH && dh < k.bodyR + 1.0) {
+        spawnParticles(b.x, b.y, b.z, [0xff9dc8, 0xffd54a, 0x7cc4ff, 0xffffff], 36, [8, 30], 12);
+        state.shake = 1.3;
+        endThrow(true);
+        return;
+      }
+      if (b.y < 0.55) {
+        const lx = (b.x - FARM_LAKE.x) / FARM_LAKE.rx, lz = (b.z - FARM_LAKE.z) / FARM_LAKE.rz;
+        if (lx * lx + lz * lz < 1) {
+          // ¡splash en la laguna!
+          spawnParticles(b.x, 0.5, b.z, [0x7cc4ff, 0xd8f2ff, 0x3a8ab8], 26, [6, 26], 12);
+        } else {
+          spawnParticles(b.x, 0.4, b.z, [0x3f7a35, 0x2a5e2a], 16, [5, 22], 7);
+        }
+        state.shake = 1;
+        endThrow(false);
+        return;
+      }
+      if (Math.abs(b.x) > CFG.boundsX || Math.abs(b.z) > CFG.boundsX) endThrow(false);
+      return;
+    }
 
     // fútbol: barrera, arquero y plano del arco
     if (sc.target === "goal") {
@@ -4305,6 +4988,9 @@
     policeArm.rotation.z = lerp(0.45, 2.6, state.armUp);
     archerArm.rotation.z = lerp(0.45, 2.6, state.armUp);
     futbolLeg.rotation.z = lerp(0, 1.5, state.armUp);   // patada
+    // peluches: levanta el brazo solo el que tira (el perrito tira hacia -x)
+    cowArm.rotation.z = lerp(0.5, 2.5, scen().thrower === "cow" ? state.armUp : 0);
+    pupArm.rotation.z = -lerp(0.5, 2.55, scen().thrower === "pup" ? state.armUp : 0);
     // la rampa se inclina en vivo con el slider de ángulo
     carRamp.rotation.z = (+ui.angle.value) * Math.PI / 180 * 0.55;
     const k = state.basket;
@@ -4418,6 +5104,13 @@
       // aspas del molino
       const mill = envGroup.userData.mill;
       if (mill) mill.rotation.z += dt * 0.5;
+      // patitos nadando en la laguna
+      const dks = envGroup.userData.ducks;
+      if (dks) for (const { m, ph, r, cx, cz } of dks) {
+        const a = state.time * 0.16 + ph;
+        m.position.set(cx + Math.cos(a) * r, 0.12, cz + Math.sin(a) * r * 0.55);
+        m.rotation.y = -a + Math.PI;
+      }
       // rodadoras del desierto
       const tws = envGroup.userData.tumbleweeds;
       if (tws) for (const { m, fac } of tws) {
@@ -4432,7 +5125,7 @@
     // el lanzador rota suavemente hacia el giro elegido
     const targetYaw = (+ui.yaw.value) * Math.PI / 180;
     state.gorillaYaw += (targetYaw - state.gorillaYaw) * Math.min(1, dt * 10);
-    thrower.rotation.y = state.gorillaYaw;
+    thrower.rotation.y = state.dir < 0 ? -state.gorillaYaw : state.gorillaYaw;
 
     // cámara orbital + shake al fallar
     controls.update();

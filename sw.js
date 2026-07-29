@@ -1,5 +1,5 @@
 // Service worker: habilita la instalación como app y el juego offline.
-const CACHE = "apunto-y-tiro-v2";
+const CACHE = "apunto-y-tiro-v3";
 const ASSETS = [
   "./",
   "./index.html",
