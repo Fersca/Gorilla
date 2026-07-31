@@ -111,6 +111,37 @@
   body.gyro #controls { display: none; }
   body.gyro #gyroThrowBtn { display: block; }
 
+  /* ---------- modo paseo (primera persona): joystick para caminar ---------- */
+  #navPad {
+    position: fixed;
+    display: none;
+    left: max(18px, env(safe-area-inset-left));
+    bottom: max(18px, env(safe-area-inset-bottom));
+    width: 124px;
+    height: 124px;
+    border-radius: 50%;
+    background: rgba(16, 20, 38, .45);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 7;
+    touch-action: none;
+  }
+  #navKnob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #ffe28a, #e8a72c 78%);
+    box-shadow: 0 6px 16px rgba(0,0,0,.45);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  body.nav #navPad { display: block; }
+  body.nav #controls, body.nav #gyroThrowBtn { display: none; }
+
   /* ---------- banner de nivel ---------- */
   #banner {
     position: fixed;
@@ -380,6 +411,7 @@
       <button class="chip" id="rankBtn">🏆 Ranking</button>
       <button class="chip" id="aboutBtn">ℹ️ Acerca de…</button>
       <button class="chip" id="windBtn">💨 ON</button>
+      <button class="chip" id="navBtn">🚶 Navegar</button>
       <button class="chip" id="gyroBtn">🧭 Giroscopio</button>
       <button class="chip" id="viewBtn">📷 Vista</button>
       <button class="chip" id="fsBtn">⛶ Pantalla</button>
@@ -463,6 +495,7 @@
   <button id="throwBtn">🍌 ¡LANZAR!</button>
 </div>
 <button id="gyroThrowBtn" title="¡lanzar!">🎯</button>
+<div id="navPad"><div id="navKnob"></div></div>
 
 <script src="vendor/three.min.js"></script>
 <script src="vendor/OrbitControls.js"></script>
@@ -4291,7 +4324,7 @@
     };
   }
   function updateAim() {
-    const show = !state.banana && !state.celebrating;
+    const show = !state.banana && !state.celebrating && !navOn;
     const angle = (+ui.angle.value) * Math.PI / 180;
     const yaw = (+ui.yaw.value) * Math.PI / 180;
     const v0 = (+ui.power.value) * CFG.powerToV;
@@ -5159,8 +5192,9 @@
     state.gorillaYaw += (targetYaw - state.gorillaYaw) * Math.min(1, dt * 10);
     thrower.rotation.y = state.dir < 0 ? -state.gorillaYaw : state.gorillaYaw;
 
-    // cámara orbital + shake al fallar
-    controls.update();
+    // cámara orbital (o primera persona en modo paseo) + shake al fallar
+    if (navOn) updateNav(dt);
+    else controls.update();
     if (state.shake > 0) {
       state.shake = Math.max(0, state.shake - dt * 4);
       camera.position.x += rand(-state.shake, state.shake) * 0.3;
@@ -5327,7 +5361,7 @@
   // GAME_VERSION es la versión del contenido del juego (se incrementa en cada
   // release); el deploy publica version.json con este mismo número. Al abrir,
   // si el sitio tiene una versión más nueva, se baja el contenido nuevo.
-  const GAME_VERSION = 2;
+  const GAME_VERSION = 3;
   const PAGES_URL = "https://fersca.github.io/Gorilla/";
   document.getElementById("verTxt").textContent = "versión " + GAME_VERSION;
   async function checkForUpdate() {
@@ -5406,6 +5440,7 @@
     syncSlider(input, out, suffix);
   }
   function onGyro(e) {
+    if (navOn) return;   // paseando, el sensor maneja la mirada, no la puntería
     if (e.beta == null || e.gamma == null) return;
     if (!gyroBase) {
       // cómo está el teléfono al activar = punto de partida (con los valores actuales)
@@ -5444,6 +5479,185 @@
   gyroBtn.addEventListener("click", () => setGyro(!gyroOn));
   ui.gyroThrow.addEventListener("click", throwBanana);
 
+  // ------------------------------------------------ modo paseo 🚶 (primera persona)
+  // Aparece una persona en el escenario y la cámara se ve desde sus ojos:
+  // se camina con el joystick (o WASD), se mira/gira arrastrando el dedo
+  // o girando el teléfono (giroscopio). El mismo botón sale del modo.
+  const nSkin = new THREE.MeshStandardMaterial({ color: 0xd2a075, roughness: 0.7 });
+  const nShirt = new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 0.8 });
+  const nPants = new THREE.MeshStandardMaterial({ color: 0x27356e, roughness: 0.85 });
+  const nShoe = new THREE.MeshStandardMaterial({ color: 0xe8e8ee, roughness: 0.6 });
+  const navWalker = new THREE.Group();
+  const navLegL = new THREE.Group(), navLegR = new THREE.Group();
+  {
+    navLegL.position.set(-0.85, 5.2, 0);
+    navLegR.position.set(0.85, 5.2, 0);
+    for (const lg of [navLegL, navLegR]) {
+      const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.48, 3.2, 6, 12), nPants);
+      leg.geometry.translate(0, -2.2, 0);   // cuelga de la cadera, para balancearse al caminar
+      leg.castShadow = true;
+      lg.add(leg);
+      const shoe = sphere(0.62, nShoe, 1.1, 0.55, 1.5);
+      shoe.position.set(0, -4.6, 0.35);
+      lg.add(shoe);
+      navWalker.add(lg);
+    }
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(1.25, 2.6, 6, 14), nShirt);
+    torso.position.set(0, 7.3, 0);
+    torso.castShadow = true;
+    navWalker.add(torso);
+    for (const sx of [-1.7, 1.7]) {
+      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 3, 6, 12), nSkin);
+      arm.geometry.translate(0, -1.8, 0);
+      arm.position.set(sx, 8.9, 0.1);
+      arm.rotation.z = sx > 0 ? 0.3 : -0.3;
+      arm.castShadow = true;
+      navWalker.add(arm);
+    }
+    const head = sphere(1.0, nSkin);
+    head.position.set(0, 10.4, 0.1);
+    navWalker.add(head);
+    const cap = sphere(1.04, new THREE.MeshStandardMaterial({ color: 0xd03a2e, roughness: 0.8 }), 1, 0.5, 1);
+    cap.position.set(0, 11, 0.05);
+    navWalker.add(cap);
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.12, 0.9), new THREE.MeshStandardMaterial({ color: 0xa02a20, roughness: 0.8 }));
+    visor.position.set(0, 10.9, 1);
+    navWalker.add(visor);
+    addFace(navWalker, 10.4, 0.1, 1.0);
+  }
+  navWalker.visible = false;
+  scene.add(navWalker);
+
+  const navBtn = document.getElementById("navBtn");
+  const navPad = document.getElementById("navPad");
+  const navKnob = document.getElementById("navKnob");
+  let navOn = false, navBase = null;
+  const nav = {
+    x: 0, z: 0,
+    dragYaw: 0, dragPitch: 0,     // mirada acumulada con el dedo/mouse
+    gyroYaw: 0, gyroPitch: 0,     // mirada aportada por el giroscopio
+    joyF: 0, joyS: 0,             // joystick: adelante/atrás y costados
+  };
+  const navKeys = {};
+  const NAV_EYE = 9.8, NAV_SPEED = 17, NAV_BOUND = 100;
+
+  function onNavGyro(e) {
+    if (e.alpha == null || e.beta == null) return;
+    if (!navBase) {
+      navBase = { alpha: e.alpha, beta: e.beta, gamma: e.gamma || 0 };
+      return;
+    }
+    // girar el teléfono (eje Z) gira la vista; inclinarlo mira arriba/abajo
+    nav.gyroYaw = wrap180(e.alpha - navBase.alpha) * Math.PI / 180;
+    const ang = (screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0;
+    const rawPitch = ang === 90 ? -wrap180((e.gamma || 0) - navBase.gamma)
+                   : (ang === -90 || ang === 270) ? wrap180((e.gamma || 0) - navBase.gamma)
+                   : wrap180(e.beta - navBase.beta);
+    nav.gyroPitch = rawPitch * Math.PI / 180;
+  }
+
+  function updateNav(dt) {
+    const yaw = nav.dragYaw + nav.gyroYaw;
+    const pitch = Math.min(1.15, Math.max(-1.15, nav.dragPitch + nav.gyroPitch));
+    // caminar: joystick + teclas WASD, relativo a donde se mira
+    const fwd = Math.min(1, Math.max(-1, nav.joyF + (navKeys.w ? 1 : 0) - (navKeys.s ? 1 : 0)));
+    const str = Math.min(1, Math.max(-1, nav.joyS + (navKeys.d ? 1 : 0) - (navKeys.a ? 1 : 0)));
+    const fx = Math.cos(yaw), fz = -Math.sin(yaw);   // adelante
+    const rx = -fz, rz = fx;                          // derecha
+    nav.x = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, nav.x + (fx * fwd + rx * str) * NAV_SPEED * dt));
+    nav.z = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, nav.z + (fz * fwd + rz * str) * NAV_SPEED * dt));
+    navWalker.position.set(nav.x, 0, nav.z);
+    navWalker.rotation.y = yaw + Math.PI / 2;   // el modelo mira hacia donde camina
+    // piernas balanceándose al caminar
+    const moving = Math.abs(fwd) + Math.abs(str) > 0.08;
+    const swing = moving ? Math.sin(state.time * 9) * 0.55 : 0;
+    navLegL.rotation.x = swing;
+    navLegR.rotation.x = -swing;
+    // cámara en los ojos, apenas adelante para no ver la propia cabeza
+    const dx = Math.cos(yaw) * Math.cos(pitch), dy = Math.sin(pitch), dz = -Math.sin(yaw) * Math.cos(pitch);
+    camera.position.set(nav.x + dx * 1.1, NAV_EYE + dy * 1.1, nav.z + dz * 1.1);
+    camera.lookAt(nav.x + dx * 40, NAV_EYE + dy * 40, nav.z + dz * 40);
+  }
+
+  async function setNav(on) {
+    navOn = on;
+    document.body.classList.toggle("nav", on);
+    navBtn.textContent = on ? "🚶 Navegar ON" : "🚶 Navegar";
+    navBtn.classList.toggle("on", on);
+    navWalker.visible = on;
+    controls.enabled = !on;
+    if (on) {
+      // aparece al lado del lanzador, mirando hacia el blanco
+      nav.x = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, state.thrower.x + 8));
+      nav.z = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, state.thrower.z + 14));
+      nav.dragYaw = state.dir < 0 ? Math.PI : 0;
+      nav.dragPitch = nav.gyroYaw = nav.gyroPitch = nav.joyF = nav.joyS = 0;
+      navBase = null;
+      navWalker.position.set(nav.x, 0, nav.z);
+      if (typeof DeviceOrientationEvent !== "undefined") {
+        if (typeof DeviceOrientationEvent.requestPermission === "function") {
+          try { if (await DeviceOrientationEvent.requestPermission() === "granted") window.addEventListener("deviceorientation", onNavGyro); }
+          catch (err) { /* sin permiso: queda el dedo/mouse */ }
+        } else {
+          window.addEventListener("deviceorientation", onNavGyro);
+        }
+      }
+      showBanner("🚶 MODO PASEO", "Caminá con el joystick (o WASD) y mirá arrastrando el dedo o girando el teléfono 🧭", 3200);
+    } else {
+      window.removeEventListener("deviceorientation", onNavGyro);
+      navLegL.rotation.x = navLegR.rotation.x = 0;
+      resetView();
+    }
+  }
+  navBtn.addEventListener("click", () => setNav(!navOn));
+
+  // mirar arrastrando el dedo o el mouse sobre la escena
+  let lookId = null, lookLast = null;
+  renderer.domElement.addEventListener("pointerdown", (e) => {
+    if (!navOn) return;
+    lookId = e.pointerId;
+    lookLast = { x: e.clientX, y: e.clientY };
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (!navOn || e.pointerId !== lookId || !lookLast) return;
+    nav.dragYaw -= (e.clientX - lookLast.x) * 0.004;
+    nav.dragPitch -= (e.clientY - lookLast.y) * 0.004;
+    lookLast = { x: e.clientX, y: e.clientY };
+  });
+  window.addEventListener("pointerup", (e) => { if (e.pointerId === lookId) lookId = null; });
+
+  // joystick táctil para caminar
+  let padId = null;
+  function padMove(e) {
+    const r = navPad.getBoundingClientRect();
+    let dx = (e.clientX - r.left - r.width / 2) / (r.width / 2);
+    let dy = (e.clientY - r.top - r.height / 2) / (r.height / 2);
+    const m = Math.hypot(dx, dy);
+    if (m > 1) { dx /= m; dy /= m; }
+    nav.joyS = dx;
+    nav.joyF = -dy;
+    navKnob.style.transform = `translate(calc(-50% + ${dx * 35}px), calc(-50% + ${dy * 35}px))`;
+  }
+  navPad.addEventListener("pointerdown", (e) => {
+    padId = e.pointerId;
+    navPad.setPointerCapture(padId);
+    padMove(e);
+    e.preventDefault();
+  });
+  navPad.addEventListener("pointermove", (e) => { if (e.pointerId === padId) padMove(e); });
+  const padEnd = (e) => {
+    if (e.pointerId !== padId) return;
+    padId = null;
+    nav.joyF = nav.joyS = 0;
+    navKnob.style.transform = "translate(-50%, -50%)";
+  };
+  navPad.addEventListener("pointerup", padEnd);
+  navPad.addEventListener("pointercancel", padEnd);
+
+  // caminar con el teclado
+  window.addEventListener("keydown", (e) => { if (navOn) navKeys[e.key.toLowerCase()] = true; });
+  window.addEventListener("keyup", (e) => { navKeys[e.key.toLowerCase()] = false; });
+
   window.addEventListener("keydown", (e) => {
     const bump = (input, delta, out, suffix) => {
       input.value = Math.min(+input.max, Math.max(+input.min, +input.value + delta));
@@ -5473,7 +5687,7 @@
   // ==================================================================
   // Arranque
   // ==================================================================
-  window.__game = { state, CFG, SCENARIOS, HOOP, camera, controls, switchScenario, newLevel };
+  window.__game = { state, CFG, SCENARIOS, HOOP, camera, controls, switchScenario, newLevel, nav };
   onResize();
   resetView();
   applyScenario();
