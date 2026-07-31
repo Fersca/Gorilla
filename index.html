@@ -5327,7 +5327,7 @@
   // GAME_VERSION es la versión del contenido del juego (se incrementa en cada
   // release); el deploy publica version.json con este mismo número. Al abrir,
   // si el sitio tiene una versión más nueva, se baja el contenido nuevo.
-  const GAME_VERSION = 1;
+  const GAME_VERSION = 2;
   const PAGES_URL = "https://fersca.github.io/Gorilla/";
   document.getElementById("verTxt").textContent = "versión " + GAME_VERSION;
   async function checkForUpdate() {
@@ -5395,7 +5395,7 @@
 
   // ------------------------------------------------ control por giroscopio
   // 🧭: en vez de los sliders se apunta moviendo el teléfono —
-  // eje Y (gamma) = ángulo · eje X (beta) = giro · eje Z (alpha) = fuerza.
+  // eje Y (gamma) = ángulo · eje Z (alpha) = giro · eje X (beta) = fuerza.
   // El panel se oculta y queda solo el botoncito redondo de tiro.
   const gyroBtn = document.getElementById("gyroBtn");
   let gyroOn = false, gyroBase = null;
@@ -5416,8 +5416,8 @@
       return;
     }
     gyroSet("angle", gyroBase.angle + wrap180(e.gamma - gyroBase.gamma) * 1.2);            // eje Y
-    gyroSet("yaw", gyroBase.yaw + wrap180(e.beta - gyroBase.beta) * 0.8);                  // eje X
-    gyroSet("power", gyroBase.power + wrap180((e.alpha || 0) - gyroBase.alpha) * 0.8);     // eje Z
+    gyroSet("yaw", gyroBase.yaw + wrap180((e.alpha || 0) - gyroBase.alpha) * 0.8);         // eje Z
+    gyroSet("power", gyroBase.power + wrap180(e.beta - gyroBase.beta) * 0.8);              // eje X
   }
   async function setGyro(on) {
     if (on && typeof DeviceOrientationEvent === "undefined") {
@@ -5436,7 +5436,7 @@
     gyroBtn.classList.toggle("on", on);
     if (on) {
       window.addEventListener("deviceorientation", onGyro);
-      showBanner("🧭 GIROSCOPIO", "Inclinás = ángulo · ladeás = giro · rotás = fuerza. El botón redondo dispara 🎯", 3000);
+      showBanner("🧭 GIROSCOPIO", "Inclinás = ángulo · rotás = giro · ladeás = fuerza. El botón redondo dispara 🎯", 3000);
     } else {
       window.removeEventListener("deviceorientation", onGyro);
     }
