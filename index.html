@@ -84,7 +84,32 @@
     touch-action: manipulation;
   }
   button.chip:active { transform: scale(.94); }
+  button.chip.on { border-color: var(--accent); color: var(--accent); }
   #windArrow { display: inline-block; font-size: 14px; }
+  #menuToggle { min-width: 34px; justify-content: center; }
+
+  /* ---------- modo giroscopio: solo queda el botoncito redondo de tiro ---------- */
+  #gyroThrowBtn {
+    position: fixed;
+    display: none;
+    right: max(18px, env(safe-area-inset-right));
+    bottom: max(18px, env(safe-area-inset-bottom));
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.4);
+    background: radial-gradient(circle at 32% 28%, #ffd54a, #e8752c 75%);
+    font-size: 32px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 7;
+    box-shadow: 0 10px 26px rgba(0,0,0,.5);
+    touch-action: manipulation;
+  }
+  #gyroThrowBtn:active:not(:disabled) { transform: scale(.9); }
+  #gyroThrowBtn:disabled { filter: grayscale(.7) brightness(.65); }
+  body.gyro #controls { display: none; }
+  body.gyro #gyroThrowBtn { display: block; }
 
   /* ---------- banner de nivel ---------- */
   #banner {
@@ -347,16 +372,20 @@
   <div class="hudGroup">
     <div class="chip">🏆 Nivel <b id="levelTxt">1</b></div>
     <div class="chip">🎯 Intentos <b id="triesTxt">0</b></div>
-    <button class="chip" id="scenBtn">🏙️ Ciudad</button>
-    <button class="chip" id="rankBtn">🏆 Ranking</button>
-    <button class="chip" id="aboutBtn">ℹ️ Acerca de…</button>
+    <div class="chip" id="windChip" style="display:none"><span id="windArrow">→</span> <b id="windTxt">0</b></div>
   </div>
   <div class="hudGroup">
-    <button class="chip" id="windBtn">💨 ON</button>
-    <div class="chip" id="windChip" style="display:none"><span id="windArrow">→</span> <b id="windTxt">0</b></div>
-    <button class="chip" id="viewBtn">📷 Vista</button>
-    <button class="chip" id="fsBtn">⛶ Pantalla</button>
-    <button class="chip" id="installBtn">📲 Instalar</button>
+    <div class="hudGroup" id="hudMenu">
+      <button class="chip" id="scenBtn">🏙️ Ciudad</button>
+      <button class="chip" id="rankBtn">🏆 Ranking</button>
+      <button class="chip" id="aboutBtn">ℹ️ Acerca de…</button>
+      <button class="chip" id="windBtn">💨 ON</button>
+      <button class="chip" id="gyroBtn">🧭 Giroscopio</button>
+      <button class="chip" id="viewBtn">📷 Vista</button>
+      <button class="chip" id="fsBtn">⛶ Pantalla</button>
+      <button class="chip" id="installBtn">📲 Instalar</button>
+    </div>
+    <button class="chip" id="menuToggle" title="mostrar/ocultar menú">▾</button>
   </div>
 </div>
 
@@ -433,6 +462,7 @@
   </div>
   <button id="throwBtn">🍌 ¡LANZAR!</button>
 </div>
+<button id="gyroThrowBtn" title="¡lanzar!">🎯</button>
 
 <script src="vendor/three.min.js"></script>
 <script src="vendor/OrbitControls.js"></script>
@@ -595,6 +625,7 @@
     angleOut: document.getElementById("angleOut"),
     powerOut: document.getElementById("powerOut"),
     throwBtn: document.getElementById("throwBtn"),
+    gyroThrow: document.getElementById("gyroThrowBtn"),
     viewBtn: document.getElementById("viewBtn"),
     scenBtn: document.getElementById("scenBtn"),
     windBtn: document.getElementById("windBtn"),
@@ -4607,7 +4638,7 @@
     handItem().visible = true;
     state.celebrating = false;
     ui.levelTxt.textContent = state.level;
-    ui.throwBtn.disabled = false;
+    ui.throwBtn.disabled = ui.gyroThrow.disabled = false;
     if (!first) showBanner(`¡NIVEL ${state.level}!`, sc.moveMsg);
   }
 
@@ -4693,7 +4724,7 @@
     ui.triesTxt.textContent = state.tries;
     rec(state.scenKey).throws++;
     saveRecords();
-    ui.throwBtn.disabled = true;
+    ui.throwBtn.disabled = ui.gyroThrow.disabled = true;
     state.armUp = 1;
     handItem().visible = false;
     flyItem().visible = true;
@@ -4731,7 +4762,7 @@
     } else {
       sndMiss();
       handItem().visible = true;
-      ui.throwBtn.disabled = false;
+      ui.throwBtn.disabled = ui.gyroThrow.disabled = false;
     }
   }
 
@@ -5296,7 +5327,7 @@
   // GAME_VERSION es la versión del contenido del juego (se incrementa en cada
   // release); el deploy publica version.json con este mismo número. Al abrir,
   // si el sitio tiene una versión más nueva, se baja el contenido nuevo.
-  const GAME_VERSION = 0;
+  const GAME_VERSION = 1;
   const PAGES_URL = "https://fersca.github.io/Gorilla/";
   document.getElementById("verTxt").textContent = "versión " + GAME_VERSION;
   async function checkForUpdate() {
@@ -5352,6 +5383,66 @@
     btn.addEventListener("pointercancel", stop);
     btn.addEventListener("pointerleave", stop);
   });
+
+  // ------------------------------------------------ menú plegable del HUD
+  const hudMenu = document.getElementById("hudMenu");
+  const menuToggle = document.getElementById("menuToggle");
+  menuToggle.addEventListener("click", () => {
+    const hidden = hudMenu.style.display === "none";
+    hudMenu.style.display = hidden ? "flex" : "none";
+    menuToggle.textContent = hidden ? "▾" : "▴";
+  });
+
+  // ------------------------------------------------ control por giroscopio
+  // 🧭: en vez de los sliders se apunta moviendo el teléfono —
+  // eje Y (gamma) = ángulo · eje X (beta) = giro · eje Z (alpha) = fuerza.
+  // El panel se oculta y queda solo el botoncito redondo de tiro.
+  const gyroBtn = document.getElementById("gyroBtn");
+  let gyroOn = false, gyroBase = null;
+  const wrap180 = (d) => ((d % 360) + 540) % 360 - 180;
+  function gyroSet(name, v) {
+    const [input, out, suffix] = SLIDER_META[name];
+    input.value = Math.round(Math.min(+input.max, Math.max(+input.min, v)));
+    syncSlider(input, out, suffix);
+  }
+  function onGyro(e) {
+    if (e.beta == null || e.gamma == null) return;
+    if (!gyroBase) {
+      // cómo está el teléfono al activar = punto de partida (con los valores actuales)
+      gyroBase = {
+        alpha: e.alpha || 0, beta: e.beta, gamma: e.gamma,
+        angle: +ui.angle.value, yaw: +ui.yaw.value, power: +ui.power.value,
+      };
+      return;
+    }
+    gyroSet("angle", gyroBase.angle + wrap180(e.gamma - gyroBase.gamma) * 1.2);            // eje Y
+    gyroSet("yaw", gyroBase.yaw + wrap180(e.beta - gyroBase.beta) * 0.8);                  // eje X
+    gyroSet("power", gyroBase.power + wrap180((e.alpha || 0) - gyroBase.alpha) * 0.8);     // eje Z
+  }
+  async function setGyro(on) {
+    if (on && typeof DeviceOrientationEvent === "undefined") {
+      showBanner("🧭 SIN GIROSCOPIO", "Este dispositivo no tiene sensor de orientación 😕", 2200);
+      return;
+    }
+    if (on && typeof DeviceOrientationEvent.requestPermission === "function") {
+      // iOS pide permiso explícito (tiene que salir de un toque del usuario)
+      try { if (await DeviceOrientationEvent.requestPermission() !== "granted") return; }
+      catch (err) { return; }
+    }
+    gyroOn = on;
+    gyroBase = null;
+    document.body.classList.toggle("gyro", on);
+    gyroBtn.textContent = on ? "🧭 Giroscopio ON" : "🧭 Giroscopio";
+    gyroBtn.classList.toggle("on", on);
+    if (on) {
+      window.addEventListener("deviceorientation", onGyro);
+      showBanner("🧭 GIROSCOPIO", "Inclinás = ángulo · ladeás = giro · rotás = fuerza. El botón redondo dispara 🎯", 3000);
+    } else {
+      window.removeEventListener("deviceorientation", onGyro);
+    }
+  }
+  gyroBtn.addEventListener("click", () => setGyro(!gyroOn));
+  ui.gyroThrow.addEventListener("click", throwBanana);
 
   window.addEventListener("keydown", (e) => {
     const bump = (input, delta, out, suffix) => {
