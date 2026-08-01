@@ -5361,7 +5361,7 @@
   // GAME_VERSION es la versión del contenido del juego (se incrementa en cada
   // release); el deploy publica version.json con este mismo número. Al abrir,
   // si el sitio tiene una versión más nueva, se baja el contenido nuevo.
-  const GAME_VERSION = 4;
+  const GAME_VERSION = 5;
   const PAGES_URL = "https://fersca.github.io/Gorilla/";
   document.getElementById("verTxt").textContent = "versión " + GAME_VERSION;
   async function checkForUpdate() {
@@ -5432,27 +5432,49 @@
   // eje Y (gamma) = ángulo · eje Z (alpha) = giro · eje X (beta) = fuerza.
   // El panel se oculta y queda solo el botoncito redondo de tiro.
   const gyroBtn = document.getElementById("gyroBtn");
-  let gyroOn = false, gyroBase = null;
-  const wrap180 = (d) => ((d % 360) + 540) % 360 - 180;
+  let gyroOn = false;
   function gyroSet(name, v) {
     const [input, out, suffix] = SLIDER_META[name];
     input.value = Math.round(Math.min(+input.max, Math.max(+input.min, v)));
     syncSlider(input, out, suffix);
   }
+  // La POSE completa del teléfono al activar es el origen (quaterniones,
+  // igual que el modo paseo): los movimientos se miden sobre los EJES DEL
+  // PROPIO TELÉFONO relativos a esa pose, así que funciona igual parado,
+  // reclinado o acostado. Un filtro atenuador suaviza el temblor de la mano.
+  const aimQ = {
+    ref: null,                     // pose de origen
+    cur: new THREE.Quaternion(),
+    rel: new THREE.Quaternion(),
+    euler: new THREE.Euler(),
+    out: new THREE.Euler(),
+    base: { angle: 45, yaw: 0, power: 60 },   // valores de los sliders al activar
+    s: { ang: 0, yaw: 0, pow: 0 },            // deltas suavizados (en grados)
+  };
   function onGyro(e) {
     if (navOn) return;   // paseando, el sensor maneja la mirada, no la puntería
     if (e.beta == null || e.gamma == null) return;
-    if (!gyroBase) {
+    const d2r = Math.PI / 180;
+    aimQ.euler.set(e.beta * d2r, (e.alpha || 0) * d2r, -e.gamma * d2r, "YXZ");
+    aimQ.cur.setFromEuler(aimQ.euler);
+    if (!aimQ.ref) {
       // cómo está el teléfono al activar = punto de partida (con los valores actuales)
-      gyroBase = {
-        alpha: e.alpha || 0, beta: e.beta, gamma: e.gamma,
-        angle: +ui.angle.value, yaw: +ui.yaw.value, power: +ui.power.value,
-      };
+      aimQ.ref = aimQ.cur.clone();
+      aimQ.base = { angle: +ui.angle.value, yaw: +ui.yaw.value, power: +ui.power.value };
+      aimQ.s.ang = aimQ.s.yaw = aimQ.s.pow = 0;
       return;
     }
-    gyroSet("angle", gyroBase.angle + wrap180(e.gamma - gyroBase.gamma) * 1.2);            // eje Y
-    gyroSet("yaw", gyroBase.yaw + wrap180((e.alpha || 0) - gyroBase.alpha) * 0.8);         // eje Z
-    gyroSet("power", gyroBase.power + wrap180(e.beta - gyroBase.beta) * 0.8);              // eje X
+    // rotación relativa a la pose de origen, descompuesta en los ejes del teléfono
+    aimQ.rel.copy(aimQ.ref).invert().multiply(aimQ.cur);
+    aimQ.out.setFromQuaternion(aimQ.rel, "YXZ");
+    const r2d = 180 / Math.PI;
+    // filtro atenuador: cada lectura acerca los deltas al objetivo de a poco
+    aimQ.s.ang += (-aimQ.out.z * r2d - aimQ.s.ang) * 0.3;   // eje Y del teléfono
+    aimQ.s.yaw += (aimQ.out.y * r2d - aimQ.s.yaw) * 0.3;    // eje Z
+    aimQ.s.pow += (aimQ.out.x * r2d - aimQ.s.pow) * 0.3;    // eje X
+    gyroSet("angle", aimQ.base.angle + aimQ.s.ang * 1.2);
+    gyroSet("yaw", aimQ.base.yaw + aimQ.s.yaw * 0.8);
+    gyroSet("power", aimQ.base.power + aimQ.s.pow * 0.8);
   }
   async function setGyro(on) {
     if (on && typeof DeviceOrientationEvent === "undefined") {
@@ -5465,7 +5487,7 @@
       catch (err) { return; }
     }
     gyroOn = on;
-    gyroBase = null;
+    aimQ.ref = null;   // la pose actual del teléfono pasa a ser el origen
     document.body.classList.toggle("gyro", on);
     gyroBtn.textContent = on ? "🧭 Giroscopio ON" : "🧭 Giroscopio";
     gyroBtn.classList.toggle("on", on);
