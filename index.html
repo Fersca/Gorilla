@@ -5361,7 +5361,7 @@
   // GAME_VERSION es la versión del contenido del juego (se incrementa en cada
   // release); el deploy publica version.json con este mismo número. Al abrir,
   // si el sitio tiene una versión más nueva, se baja el contenido nuevo.
-  const GAME_VERSION = 3;
+  const GAME_VERSION = 4;
   const PAGES_URL = "https://fersca.github.io/Gorilla/";
   document.getElementById("verTxt").textContent = "versión " + GAME_VERSION;
   async function checkForUpdate() {
@@ -5531,32 +5531,63 @@
   const navBtn = document.getElementById("navBtn");
   const navPad = document.getElementById("navPad");
   const navKnob = document.getElementById("navKnob");
-  let navOn = false, navBase = null;
+  let navOn = false;
   const nav = {
     x: 0, z: 0,
     dragYaw: 0, dragPitch: 0,     // mirada acumulada con el dedo/mouse
-    gyroYaw: 0, gyroPitch: 0,     // mirada aportada por el giroscopio
+    gyroYaw: 0, gyroPitch: 0,     // mirada aportada por el giroscopio (suavizada)
     joyF: 0, joyS: 0,             // joystick: adelante/atrás y costados
   };
   const navKeys = {};
   const NAV_EYE = 9.8, NAV_SPEED = 17, NAV_BOUND = 100;
 
+  // La pose COMPLETA del teléfono al activar el modo es el origen: se
+  // trabaja con quaterniones (no con deltas de alpha/beta/gamma), así da
+  // igual estar parado, reclinado o acostado — el personaje siempre arranca
+  // mirando al frente y derecho, y la vista sigue los movimientos RELATIVOS
+  // a esa pose inicial. (Misma convención que DeviceOrientationControls.)
+  const navQ = {
+    ref: null,                                  // pose de origen (quaternion)
+    cur: new THREE.Quaternion(),
+    rel: new THREE.Quaternion(),
+    euler: new THREE.Euler(),
+    camFix: new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)),
+    scr: new THREE.Quaternion(),
+    zee: new THREE.Vector3(0, 0, 1),
+    fwd: new THREE.Vector3(),
+  };
+  let navTargetYaw = 0, navTargetPitch = 0;     // crudos del sensor (sin suavizar)
+  function deviceQuaternion(out, e) {
+    const d2r = Math.PI / 180;
+    const orient = (((screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0)) * d2r;
+    navQ.euler.set(e.beta * d2r, e.alpha * d2r, -(e.gamma || 0) * d2r, "YXZ");
+    out.setFromEuler(navQ.euler);
+    out.multiply(navQ.camFix);                                  // la "cámara" mira detrás del teléfono
+    out.multiply(navQ.scr.setFromAxisAngle(navQ.zee, -orient)); // compensa pantalla apaisada
+    return out;
+  }
   function onNavGyro(e) {
     if (e.alpha == null || e.beta == null) return;
-    if (!navBase) {
-      navBase = { alpha: e.alpha, beta: e.beta, gamma: e.gamma || 0 };
+    deviceQuaternion(navQ.cur, e);
+    if (!navQ.ref) {
+      navQ.ref = navQ.cur.clone();   // cómo esté el teléfono ahora = "al frente"
       return;
     }
-    // girar el teléfono (eje Z) gira la vista; inclinarlo mira arriba/abajo
-    nav.gyroYaw = wrap180(e.alpha - navBase.alpha) * Math.PI / 180;
-    const ang = (screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0;
-    const rawPitch = ang === 90 ? -wrap180((e.gamma || 0) - navBase.gamma)
-                   : (ang === -90 || ang === 270) ? wrap180((e.gamma || 0) - navBase.gamma)
-                   : wrap180(e.beta - navBase.beta);
-    nav.gyroPitch = rawPitch * Math.PI / 180;
+    // rotación relativa a la pose de origen → yaw/pitch de la mirada
+    navQ.rel.copy(navQ.ref).invert().multiply(navQ.cur);
+    navQ.fwd.set(0, 0, -1).applyQuaternion(navQ.rel);
+    navTargetYaw = Math.atan2(-navQ.fwd.x, -navQ.fwd.z);
+    navTargetPitch = Math.asin(Math.min(1, Math.max(-1, navQ.fwd.y)));
   }
 
   function updateNav(dt) {
+    // filtro pasa-bajos: la vista persigue suavemente la señal del sensor,
+    // en vez de temblar con cada micro-movimiento de la mano
+    const k = Math.min(1, dt * 6);
+    const dYaw = Math.atan2(Math.sin(navTargetYaw - nav.gyroYaw), Math.cos(navTargetYaw - nav.gyroYaw));
+    nav.gyroYaw += dYaw * k;
+    nav.gyroPitch += (navTargetPitch - nav.gyroPitch) * k;
+
     const yaw = nav.dragYaw + nav.gyroYaw;
     const pitch = Math.min(1.15, Math.max(-1.15, nav.dragPitch + nav.gyroPitch));
     // caminar: joystick + teclas WASD, relativo a donde se mira
@@ -5592,7 +5623,8 @@
       nav.z = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, state.thrower.z + 14));
       nav.dragYaw = state.dir < 0 ? Math.PI : 0;
       nav.dragPitch = nav.gyroYaw = nav.gyroPitch = nav.joyF = nav.joyS = 0;
-      navBase = null;
+      navQ.ref = null;                         // la pose actual del teléfono pasa a ser el origen
+      navTargetYaw = navTargetPitch = 0;       // y el personaje arranca mirando al frente, derecho
       navWalker.position.set(nav.x, 0, nav.z);
       if (typeof DeviceOrientationEvent !== "undefined") {
         if (typeof DeviceOrientationEvent.requestPermission === "function") {

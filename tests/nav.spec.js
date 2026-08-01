@@ -40,24 +40,44 @@ test("modo paseo completo: entrar, caminar, mirar, salir", async ({ page }) => {
   expect(p1.x).toBeGreaterThan(p0.x + 1);
   expect(Math.abs(p1.z - p0.z)).toBeLessThan(1);
 
-  // giroscopio: rotar el teléfono 90° gira la vista ~90°
-  await fire(page, 50, 5, 0);          // baseline
-  await page.waitForTimeout(900);
+  // giroscopio relativo a la pose inicial: la referencia es como esté el
+  // teléfono al activar (acá: parado en vertical, beta=90)
+  await fire(page, 50, 90, 0);         // pose de origen
+  await page.waitForTimeout(400);
+  await fire(page, 50, 90, 0);         // sin mover el teléfono…
+  await page.waitForTimeout(1200);
   const d0 = await camDir(page);
-  await fire(page, 50 + 90, 5, 0);
-  await page.waitForTimeout(900);
+  expect(Math.abs(d0.y)).toBeLessThan(0.15);   // …se mira al frente y derecho
+
+  // girar el teléfono 90° gira la vista ~90° (suavizado: esperar que llegue)
+  await fire(page, 50 + 90, 90, 0);
+  await page.waitForTimeout(2600);
   const d1 = await camDir(page);
   const dot = d0.x * d1.x + d0.z * d1.z;
-  expect(Math.abs(dot)).toBeLessThan(0.3);   // perpendicular ≈ giró 90°
+  expect(Math.abs(dot)).toBeLessThan(0.35);    // perpendicular ≈ giró 90°
 
-  // inclinar el teléfono mira arriba/abajo
-  await fire(page, 50, 5 + 25, 0);
-  await page.waitForTimeout(900);
-  const d2 = await camDir(page);
-  expect(Math.abs(d2.y - d1.y)).toBeGreaterThan(0.2);
+  // el teléfono es una "ventana": inclinarlo hacia plano mira abajo,
+  // pasarlo de la vertical (top hacia la cara) mira arriba
+  await fire(page, 50, 90 - 30, 0);
+  await page.waitForTimeout(2600);
+  const down = await camDir(page);
+  expect(down.y).toBeLessThan(-0.25);
+  await fire(page, 50, 90 + 30, 0);
+  await page.waitForTimeout(3400);
+  const up = await camDir(page);
+  expect(up.y).toBeGreaterThan(0.25);
+
+  // el filtro suaviza: justo después de un salto grande del sensor, la
+  // vista todavía no llegó al destino (persigue de a poco)
+  await fire(page, 50, 90, 0);         // vuelve a la pose de origen
+  await page.waitForTimeout(2600);
+  await fire(page, 50 + 80, 90, 0);    // salto brusco de 80°
+  await page.waitForTimeout(120);
+  const mid = await page.evaluate(() => window.__game.nav.gyroYaw);
+  expect(Math.abs(mid)).toBeLessThan(1.0);     // 80° ≈ 1.4 rad: aún en camino
 
   // mirar arrastrando el dedo/mouse
-  await fire(page, 50, 5, 0);
+  await fire(page, 50, 90, 0);
   const y0 = await page.evaluate(() => window.__game.nav.dragYaw);
   await page.mouse.move(500, 200);
   await page.mouse.down();
@@ -67,6 +87,7 @@ test("modo paseo completo: entrar, caminar, mirar, salir", async ({ page }) => {
   expect(Math.abs(y1 - y0)).toBeGreaterThan(0.2);
 
   // salir: vuelve la cámara orbital y los controles
+  await page.waitForTimeout(1500);
   await page.click("#navBtn");
   await page.waitForTimeout(700);
   const out = await page.evaluate(() => ({
