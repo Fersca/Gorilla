@@ -1,5 +1,8 @@
 node_modules/
 www/
+test-results/
+playwright-report/
+tests/.version-override
 android/app/build/
 android/build/
 android/.gradle/

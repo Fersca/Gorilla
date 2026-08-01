@@ -96,13 +96,27 @@ android/              proyecto nativo de Android (Capacitor)
 capacitor.config.json configuración de Capacitor (appId, webDir)
 scripts/              build-www.js (arma www/ para Capacitor) y
                       gen-android-icons.js (íconos/splash desde icon-512)
+tests/                suite de tests Playwright (ver tests/README.md)
+playwright.config.js  configuración de la suite
 screenshots/          capturas para el README
-.github/workflows/    CI: deploy a Pages + build del APK
+CLAUDE.md             guía para agentes que continúen el desarrollo
+.github/workflows/    CI: tests + deploy a Pages + build del APK
 ```
 
-Cada push a la rama de desarrollo dispara **dos workflows**:
+Cada push a la rama de desarrollo dispara **tres workflows**:
 
-1. **Deploy a GitHub Pages** — genera `version.json` a partir de `GAME_VERSION` y publica el juego web en la rama `gh-pages` (no hay que tocarla a mano).
-2. **Build Android APK** — `npm run sync:android` (arma `www/` y sincroniza Capacitor), compila con Gradle en el runner (que trae el SDK de Android) y publica `apunto-y-tiro.apk` en el release **`app-latest`**, que es lo que descarga el botón "App nativa" del sitio.
+1. **Tests** — la suite de Playwright completa (emboques en los 7 escenarios con un solver de la física, controles, giroscopio, modo paseo, auto-actualización).
+2. **Deploy a GitHub Pages** — genera `version.json` a partir de `GAME_VERSION` y publica el juego web en la rama `gh-pages` (no hay que tocarla a mano).
+3. **Build Android APK** — `npm run sync:android` (arma `www/` y sincroniza Capacitor), compila con Gradle en el runner (que trae el SDK de Android) y publica `apunto-y-tiro.apk` en el release **`app-latest`**, que es lo que descarga el botón "App nativa" del sitio.
 
 Para desarrollar la app nativa localmente hace falta Android Studio/SDK: `npm install && npm run sync:android` y abrir `android/` en Android Studio.
+
+## Tests 🧪
+
+```bash
+npm install
+npx playwright install chromium   # una sola vez (salvo que ya haya un Chromium)
+npm test
+```
+
+La suite (en `tests/`) carga el `index.html` real en Chromium headless y verifica el juego de punta a punta; el corazón es un **solver que replica la física** y emboca niveles reales en los 7 escenarios. Todo el detalle — cómo funciona, cómo agregar tests para un escenario nuevo, cómo regenerar las capturas del README — está en [`tests/README.md`](tests/README.md).
