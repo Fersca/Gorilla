@@ -141,6 +141,8 @@
   }
   body.nav #navPad { display: block; }
   body.nav #controls, body.nav #gyroThrowBtn { display: none; }
+  /* modo Renders (vitrina de modelos glTF importados): sin controles de tiro */
+  body.renders #controls, body.renders #gyroThrowBtn { display: none; }
 
   /* ---------- banner de nivel ---------- */
   #banner {
@@ -412,6 +414,7 @@
       <button class="chip" id="aboutBtn">ℹ️ Acerca de…</button>
       <button class="chip" id="windBtn">💨 ON</button>
       <button class="chip" id="navBtn">🚶 Navegar</button>
+      <button class="chip" id="rendersBtn">🦌 Renders</button>
       <button class="chip" id="gyroBtn">🧭 Giroscopio</button>
       <button class="chip" id="viewBtn">📷 Vista</button>
       <button class="chip" id="fsBtn">⛶ Pantalla</button>
@@ -499,6 +502,7 @@
 
 <script src="vendor/three.min.js"></script>
 <script src="vendor/OrbitControls.js"></script>
+<script src="vendor/GLTFLoader.js"></script>
 <script>
 (() => {
   "use strict";
@@ -4324,7 +4328,7 @@
     };
   }
   function updateAim() {
-    const show = !state.banana && !state.celebrating && !navOn;
+    const show = !state.banana && !state.celebrating && !navOn && !rendersOn;
     const angle = (+ui.angle.value) * Math.PI / 180;
     const yaw = (+ui.yaw.value) * Math.PI / 180;
     const v0 = (+ui.power.value) * CFG.powerToV;
@@ -4712,6 +4716,7 @@
 
   function switchScenario(key) {
     if (state.banana) return;   // no cambiar en pleno vuelo
+    if (rendersOn) setRenders(false);   // salir de la vitrina antes de cambiar
     const target = key && SCENARIOS[key] ? key : scen().next;
     if (target === state.scenKey) return;
     state.scenKey = target;
@@ -4739,7 +4744,7 @@
   // Lanzamiento y física
   // ==================================================================
   function throwBanana() {
-    if (state.banana || state.celebrating) return;
+    if (state.banana || state.celebrating || rendersOn) return;
     const angle = (+ui.angle.value) * Math.PI / 180;
     const yaw = (+ui.yaw.value) * Math.PI / 180;
     const v0 = (+ui.power.value) * CFG.powerToV;
@@ -5192,6 +5197,9 @@
     state.gorillaYaw += (targetYaw - state.gorillaYaw) * Math.min(1, dt * 10);
     thrower.rotation.y = state.dir < 0 ? -state.gorillaYaw : state.gorillaYaw;
 
+    // vitrina de modelos importados: animaciones y órbitas
+    if (rendersOn) updateRenders(dt);
+
     // cámara orbital (o primera persona en modo paseo) + shake al fallar
     if (navOn) updateNav(dt);
     else controls.update();
@@ -5361,7 +5369,7 @@
   // GAME_VERSION es la versión del contenido del juego (se incrementa en cada
   // release); el deploy publica version.json con este mismo número. Al abrir,
   // si el sitio tiene una versión más nueva, se baja el contenido nuevo.
-  const GAME_VERSION = 5;
+  const GAME_VERSION = 6;
   const PAGES_URL = "https://fersca.github.io/Gorilla/";
   document.getElementById("verTxt").textContent = "versión " + GAME_VERSION;
   async function checkForUpdate() {
@@ -5633,6 +5641,7 @@
   }
 
   async function setNav(on) {
+    if (on && rendersOn) setRenders(false);   // un modo especial a la vez
     navOn = on;
     document.body.classList.toggle("nav", on);
     navBtn.textContent = on ? "🚶 Navegar ON" : "🚶 Navegar";
@@ -5712,6 +5721,99 @@
   window.addEventListener("keydown", (e) => { if (navOn) navKeys[e.key.toLowerCase()] = true; });
   window.addEventListener("keyup", (e) => { navKeys[e.key.toLowerCase()] = false; });
 
+  // ------------------------------------------------ modo Renders 🦌
+  // Vitrina de modelos glTF DESCARGADOS (no procedurales): se cargan .glb
+  // de assets/models/ con GLTFLoader y se muestran animados en un campo
+  // limpio. Créditos: Horse/Flamingo/Parrot/Stork del repo de three.js
+  // (ro.me "3 Dreams of Black", mirada) y Fox de Khronos glTF-Sample-Assets
+  // (CC-BY 4.0: PixelMannen, tomkranis/AsoboStudio).
+  const rendersBtn = document.getElementById("rendersBtn");
+  let rendersOn = false, rendersLoaded = false;
+  let rendersGroup = null;
+  const rendersMixers = [];
+  const rendersMovers = [];
+  // cada animal: tamaño normalizado, órbita (radio/altura/velocidad) y clip
+  const RENDERS_MODELS = [
+    { file: "Horse.glb",    size: 17, orbit: { r: 22, y: 0,  speed: 0.55 }, ph: 0,   yaw: 0 },
+    { file: "Fox.glb",      size: 11, orbit: { r: 12, y: 0,  speed: -0.4 }, ph: 2,   yaw: Math.PI, clip: "Run" },
+    { file: "Flamingo.glb", size: 8,  orbit: { r: 30, y: 16, speed: 0.32 }, ph: 1.2, yaw: 0 },
+    { file: "Parrot.glb",   size: 7,  orbit: { r: 18, y: 10, speed: 0.5 },  ph: 3.4, yaw: 0 },
+    { file: "Stork.glb",    size: 9,  orbit: { r: 36, y: 21, speed: 0.26 }, ph: 5,   yaw: 0 },
+  ];
+  function loadRenders() {
+    rendersLoaded = true;
+    rendersGroup = new THREE.Group();
+    rendersGroup.visible = rendersOn;
+    scene.add(rendersGroup);
+    const loader = new THREE.GLTFLoader();
+    for (const cfg of RENDERS_MODELS) {
+      loader.load("assets/models/" + cfg.file, (gltf) => {
+        const inner = gltf.scene;
+        inner.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+        // normalizar el tamaño (cada modelo viene en unidades distintas)…
+        const box = new THREE.Box3().setFromObject(inner);
+        const dims = box.getSize(new THREE.Vector3());
+        inner.scale.setScalar(cfg.size / Math.max(dims.x, dims.y, dims.z));
+        // …y apoyarlo en su propio piso
+        const box2 = new THREE.Box3().setFromObject(inner);
+        inner.position.y -= box2.min.y;
+        inner.rotation.y = cfg.yaw || 0;
+        const wrap = new THREE.Group();
+        wrap.add(inner);
+        rendersGroup.add(wrap);
+        if (gltf.animations && gltf.animations.length) {
+          const clip = (cfg.clip && THREE.AnimationClip.findByName(gltf.animations, cfg.clip)) || gltf.animations[0];
+          const mx = new THREE.AnimationMixer(inner);
+          mx.clipAction(clip).play();
+          rendersMixers.push(mx);
+        }
+        rendersMovers.push({ obj: wrap, ...cfg.orbit, ph: cfg.ph });
+      }, undefined, () => { /* si un modelo no carga, el resto sigue */ });
+    }
+  }
+  function updateRenders(dt) {
+    for (const mx of rendersMixers) mx.update(dt);
+    // todos se mueven en círculos: los de tierra galopan, los pájaros vuelan
+    for (const m of rendersMovers) {
+      const a = state.time * m.speed + m.ph;
+      const bob = m.y > 0 ? Math.sin(state.time * 1.4 + m.ph) * 1.6 : 0;
+      m.obj.position.set(Math.cos(a) * m.r, m.y + bob, Math.sin(a) * m.r);
+      // mirando hacia la tangente del círculo (según el sentido de giro)
+      m.obj.rotation.y = -a + (m.speed < 0 ? Math.PI / 2 : -Math.PI / 2);
+    }
+  }
+  function setRenders(on) {
+    if (state.banana) return;              // no cambiar en pleno vuelo
+    if (on && navOn) setNav(false);        // un modo especial a la vez
+    rendersOn = on;
+    document.body.classList.toggle("renders", on);
+    rendersBtn.textContent = on ? "🦌 Renders ON" : "🦌 Renders";
+    rendersBtn.classList.toggle("on", on);
+    if (on) {
+      envGroup.visible = false;
+      for (const key in THROWERS) THROWERS[key].visible = false;
+      basketGroup.visible = trashGroup.visible = hoopGroup.visible = false;
+      bullseyeGroup.visible = ringGroup.visible = goalGroup.visible = gkGroup.visible = false;
+      wallDummies.forEach((d) => d.visible = false);
+      pedestal.visible = pedestalCap.visible = false;
+      arrow.visible = false;
+      cowPlush.visible = pupPlush.visible = false;
+      clearTrails();
+      ground.material.color.setHex(0x2e5e1f);   // pradera limpia
+      if (!rendersLoaded) loadRenders();
+      rendersGroup.visible = true;
+      resetView();
+      showBanner("🦌 RENDERS", "Modelos 3D importados (glTF) galopando y volando ✨", 2800);
+    } else {
+      rendersGroup.visible = false;
+      envGroup.visible = true;
+      arrow.visible = true;
+      applyScenario();   // restaura lanzador, blanco y color del piso
+      newLevel(true);    // re-arma el nivel limpio
+    }
+  }
+  rendersBtn.addEventListener("click", () => setRenders(!rendersOn));
+
   window.addEventListener("keydown", (e) => {
     const bump = (input, delta, out, suffix) => {
       input.value = Math.min(+input.max, Math.max(+input.min, +input.value + delta));
@@ -5741,7 +5843,15 @@
   // ==================================================================
   // Arranque
   // ==================================================================
-  window.__game = { state, CFG, SCENARIOS, HOOP, camera, controls, switchScenario, newLevel, nav };
+  window.__game = {
+    state, CFG, SCENARIOS, HOOP, camera, controls, switchScenario, newLevel, nav,
+    renders: () => ({
+      on: rendersOn,
+      models: rendersGroup ? rendersGroup.children.length : 0,
+      mixers: rendersMixers.length,
+      x0: rendersGroup && rendersGroup.children[0] ? rendersGroup.children[0].position.x : null,
+    }),
+  };
   onResize();
   resetView();
   applyScenario();

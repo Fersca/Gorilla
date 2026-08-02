@@ -1,15 +1,21 @@
 // Service worker: habilita la instalación como app y el juego offline.
-const CACHE = "apunto-y-tiro-v4";
+const CACHE = "apunto-y-tiro-v5";
 const ASSETS = [
   "./",
   "./index.html",
   "./vendor/three.min.js",
   "./vendor/OrbitControls.js",
+  "./vendor/GLTFLoader.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
   "./icons/apple-touch-icon.png",
+  "./assets/models/Horse.glb",
+  "./assets/models/Flamingo.glb",
+  "./assets/models/Parrot.glb",
+  "./assets/models/Stork.glb",
+  "./assets/models/Fox.glb",
 ];
 
 self.addEventListener("install", (e) => {

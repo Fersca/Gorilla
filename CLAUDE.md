@@ -29,8 +29,10 @@ son en **español rioplatense**. Publicado en <https://fersca.github.io/Gorilla/
   cruce de plano. `throwHeading()` invierte el tiro cuando tira el perrito.
 - Modelos y entornos: 100 % procedurales por código (`buildCity`,
   `buildJungle`, `buildFarm`…; personajes `gorilla`, `police`, `cowPlush`…).
-- Modos: giroscopio de puntería (ejes **Y→ángulo, Z→giro, X→fuerza**) y modo
-  paseo en primera persona (`setNav`, joystick táctil + WASD + sensor).
+- Modos: giroscopio de puntería (ejes **Y→ángulo, Z→giro, X→fuerza**), modo
+  paseo en primera persona (`setNav`, joystick táctil + WASD + sensor) y modo
+  Renders (`setRenders`: vitrina de .glb importados de `assets/models/` vía
+  `THREE.GLTFLoader` vendoreado — ojo: no cargan por `file://`, usar http).
 - Actualizaciones: `GAME_VERSION` + `checkForUpdate()` (consulta
   `version.json`, nunca cacheado por el SW; guardián anti-loop por sesión).
 - **`window.__game`** expone estado y funciones: es la costura de test —

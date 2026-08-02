@@ -35,6 +35,7 @@ El botón de escenario del HUD abre un **selector con la lista completa** para s
 - **Lanzar**: el botón grande o la barra espaciadora.
 - **Giroscopio 🧭**: el botón del menú activa el control con el **sensor del teléfono** — se ocultan los sliders y queda solo un **botoncito redondo para disparar**. La posición del teléfono al activarlo es el punto de partida: **inclinándolo sobre el eje Y** cambia el ángulo, **rotándolo sobre el eje Z** el giro y **ladeándolo sobre el eje X** la fuerza (en iPhone pide permiso para usar el sensor). Se desactiva volviendo a tocar el botón.
 - **Menú plegable**: la **flechita ▾** de arriba a la derecha muestra u oculta todos los botones del HUD, para jugar con la pantalla limpia; quedan siempre a la vista el nivel, los intentos y el viento.
+- **Renders 🦌**: abre una **vitrina de modelos 3D importados** (formato glTF, descargados de catálogos libres — no procedurales como el resto del juego): un caballo y un zorro galopan en círculos y un flamenco, un loro y una cigüeña vuelan alrededor, todos con sus animaciones originales. Sirve de banco de pruebas del pipeline de importación (`GLTFLoader` + `assets/models/*.glb`). El mismo botón vuelve al juego. *Créditos: Horse/Flamingo/Parrot/Stork del repo de three.js (ro.me "3 Dreams of Black", mirada); Fox de Khronos glTF-Sample-Assets (CC-BY 4.0 — PixelMannen, tomkranis/AsoboStudio).*
 - **Modo paseo 🚶**: el botón **Navegar** hace aparecer **una persona dentro del escenario** y la cámara pasa a **primera persona** (como un FPS), para recorrer la ciudad, la selva, la granja… desde adentro. Se camina con el **joystick táctil** de abajo a la izquierda (o **WASD**), y se mira a los costados y se gira **arrastrando el dedo** o **girando el teléfono** con el giroscopio (rotarlo gira la vista, inclinarlo mira arriba/abajo). El personaje camina moviendo las piernas y respeta los límites del escenario. Tocando **Navegar** de nuevo se vuelve a la cámara y los controles de siempre.
 - **Guía de puntería**: puntitos que muestran el arranque real de la trayectoria (viento incluido), más la estela tenue del tiro anterior para corregir.
 - **Indicador de ángulo 📐 (educativo)**: en el punto de disparo se dibujan el eje horizontal, la pendiente del tiro y el **arco entre ambos con los grados marcados**, actualizándose en vivo con el slider — para aprender qué significa cada ángulo.
@@ -91,7 +92,8 @@ index.html            el juego completo (HTML + CSS + JS)
 manifest.webmanifest  metadata de la PWA
 sw.js                 service worker (instalación + offline)
 icons/                íconos de la app (192/512/maskable/apple)
-vendor/               three.js r147 + OrbitControls (vendoreados)
+vendor/               three.js r147 + OrbitControls + GLTFLoader (vendoreados)
+assets/models/        modelos glTF descargados para el modo Renders
 android/              proyecto nativo de Android (Capacitor)
 capacitor.config.json configuración de Capacitor (appId, webDir)
 scripts/              build-www.js (arma www/ para Capacitor) y

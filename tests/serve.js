@@ -16,6 +16,7 @@ const TYPES = {
   ".webmanifest": "application/manifest+json",
   ".png": "image/png",
   ".svg": "image/svg+xml",
+  ".glb": "model/gltf-binary",
 };
 
 http.createServer((req, res) => {

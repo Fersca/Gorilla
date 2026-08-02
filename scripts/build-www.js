@@ -9,7 +9,7 @@ const OUT = path.join(ROOT, "www");
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 
-const items = ["index.html", "manifest.webmanifest", "sw.js", "vendor", "icons"];
+const items = ["index.html", "manifest.webmanifest", "sw.js", "vendor", "icons", "assets"];
 for (const item of items) {
   const src = path.join(ROOT, item);
   const dst = path.join(OUT, item);
