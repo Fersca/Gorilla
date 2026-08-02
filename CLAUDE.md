@@ -30,9 +30,16 @@ son en **español rioplatense**. Publicado en <https://fersca.github.io/Gorilla/
 - Modelos y entornos: 100 % procedurales por código (`buildCity`,
   `buildJungle`, `buildFarm`…; personajes `gorilla`, `police`, `cowPlush`…).
 - Modos: giroscopio de puntería (ejes **Y→ángulo, Z→giro, X→fuerza**), modo
-  paseo en primera persona (`setNav`, joystick táctil + WASD + sensor) y modo
+  paseo en primera persona (`setNav`, joystick táctil + WASD + sensor), modo
   Renders (`setRenders`: vitrina de .glb importados de `assets/models/` vía
-  `THREE.GLTFLoader` vendoreado — ojo: no cargan por `file://`, usar http).
+  `THREE.GLTFLoader` vendoreado — ojo: no cargan por `file://`, usar http) y
+  modo Living (`setLiving`: el living de la casa con muebles Kenney CC0 en
+  `assets/models/living/`, paseo con colisiones vía `navObstacles`+raycast).
+- **Gotcha**: el `boxGeo` compartido está **anclado a la base**
+  (`translate(0, 0.5, 0)`, va de y=0 a 1): al escalarlo, posicionar en y=0,
+  NO en h/2. Los materiales de Kenney usan textura-atlas + colores por
+  vértice: para teñirlos hay que sacar `map` y `vertexColors` (ver
+  `loadLiving`).
 - Actualizaciones: `GAME_VERSION` + `checkForUpdate()` (consulta
   `version.json`, nunca cacheado por el SW; guardián anti-loop por sesión).
 - **`window.__game`** expone estado y funciones: es la costura de test —

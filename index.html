@@ -141,8 +141,9 @@
   }
   body.nav #navPad { display: block; }
   body.nav #controls, body.nav #gyroThrowBtn { display: none; }
-  /* modo Renders (vitrina de modelos glTF importados): sin controles de tiro */
+  /* modos Renders y Living (vitrinas de modelos glTF): sin controles de tiro */
   body.renders #controls, body.renders #gyroThrowBtn { display: none; }
+  body.living #controls, body.living #gyroThrowBtn { display: none; }
 
   /* ---------- banner de nivel ---------- */
   #banner {
@@ -414,6 +415,7 @@
       <button class="chip" id="aboutBtn">ℹ️ Acerca de…</button>
       <button class="chip" id="windBtn">💨 ON</button>
       <button class="chip" id="navBtn">🚶 Navegar</button>
+      <button class="chip" id="livingBtn">🛋️ Living</button>
       <button class="chip" id="rendersBtn">🦌 Renders</button>
       <button class="chip" id="gyroBtn">🧭 Giroscopio</button>
       <button class="chip" id="viewBtn">📷 Vista</button>
@@ -4328,7 +4330,7 @@
     };
   }
   function updateAim() {
-    const show = !state.banana && !state.celebrating && !navOn && !rendersOn;
+    const show = !state.banana && !state.celebrating && !navOn && !rendersOn && !livingOn;
     const angle = (+ui.angle.value) * Math.PI / 180;
     const yaw = (+ui.yaw.value) * Math.PI / 180;
     const v0 = (+ui.power.value) * CFG.powerToV;
@@ -4716,7 +4718,8 @@
 
   function switchScenario(key) {
     if (state.banana) return;   // no cambiar en pleno vuelo
-    if (rendersOn) setRenders(false);   // salir de la vitrina antes de cambiar
+    if (rendersOn) setRenders(false);   // salir de las vitrinas antes de cambiar
+    if (livingOn) setLiving(false);
     const target = key && SCENARIOS[key] ? key : scen().next;
     if (target === state.scenKey) return;
     state.scenKey = target;
@@ -4744,7 +4747,7 @@
   // Lanzamiento y física
   // ==================================================================
   function throwBanana() {
-    if (state.banana || state.celebrating || rendersOn) return;
+    if (state.banana || state.celebrating || rendersOn || livingOn) return;
     const angle = (+ui.angle.value) * Math.PI / 180;
     const yaw = (+ui.yaw.value) * Math.PI / 180;
     const v0 = (+ui.power.value) * CFG.powerToV;
@@ -5369,7 +5372,7 @@
   // GAME_VERSION es la versión del contenido del juego (se incrementa en cada
   // release); el deploy publica version.json con este mismo número. Al abrir,
   // si el sitio tiene una versión más nueva, se baja el contenido nuevo.
-  const GAME_VERSION = 6;
+  const GAME_VERSION = 7;
   const PAGES_URL = "https://fersca.github.io/Gorilla/";
   document.getElementById("verTxt").textContent = "versión " + GAME_VERSION;
   async function checkForUpdate() {
@@ -5571,6 +5574,28 @@
   const navKeys = {};
   const NAV_EYE = 9.8, NAV_SPEED = 17, NAV_BOUND = 100;
 
+  // Colisiones del paseo (se activan en el modo Living): dos rayos cortos
+  // hacia adelante — a la altura de la rodilla y del pecho — frenan contra
+  // muebles y paredes; si el paso directo choca, se intenta deslizar por eje.
+  let navObstacles = null;   // grupo contra el que chocar (null = paseo libre)
+  const navRayCaster = new THREE.Raycaster();
+  const navRayOrigin = new THREE.Vector3();
+  const navRayDir = new THREE.Vector3();
+  function navMoveBlocked(nx, nz) {
+    if (!navObstacles) return false;
+    const dx = nx - nav.x, dz = nz - nav.z;
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-5) return false;
+    navRayDir.set(dx / len, 0, dz / len);
+    for (const h of [2.4, 7.6]) {          // rodilla y pecho
+      navRayOrigin.set(nav.x, h, nav.z);
+      navRayCaster.set(navRayOrigin, navRayDir);
+      navRayCaster.far = len + 1.6;        // 1.6 = radio del cuerpo
+      if (navRayCaster.intersectObject(navObstacles, true).length > 0) return true;
+    }
+    return false;
+  }
+
   // La pose COMPLETA del teléfono al activar el modo es el origen: se
   // trabaja con quaterniones (no con deltas de alpha/beta/gamma), así da
   // igual estar parado, reclinado o acostado — el personaje siempre arranca
@@ -5625,8 +5650,12 @@
     const str = Math.min(1, Math.max(-1, nav.joyS + (navKeys.d ? 1 : 0) - (navKeys.a ? 1 : 0)));
     const fx = Math.cos(yaw), fz = -Math.sin(yaw);   // adelante
     const rx = -fz, rz = fx;                          // derecha
-    nav.x = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, nav.x + (fx * fwd + rx * str) * NAV_SPEED * dt));
-    nav.z = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, nav.z + (fz * fwd + rz * str) * NAV_SPEED * dt));
+    const nx = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, nav.x + (fx * fwd + rx * str) * NAV_SPEED * dt));
+    const nz = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, nav.z + (fz * fwd + rz * str) * NAV_SPEED * dt));
+    // con colisiones activas: si el paso directo choca, deslizar por un eje
+    if (!navMoveBlocked(nx, nz)) { nav.x = nx; nav.z = nz; }
+    else if (!navMoveBlocked(nx, nav.z)) nav.x = nx;
+    else if (!navMoveBlocked(nav.x, nz)) nav.z = nz;
     navWalker.position.set(nav.x, 0, nav.z);
     navWalker.rotation.y = yaw + Math.PI / 2;   // el modelo mira hacia donde camina
     // piernas balanceándose al caminar
@@ -5649,10 +5678,16 @@
     navWalker.visible = on;
     controls.enabled = !on;
     if (on) {
-      // aparece al lado del lanzador, mirando hacia el blanco
-      nav.x = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, state.thrower.x + 8));
-      nav.z = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, state.thrower.z + 14));
-      nav.dragYaw = state.dir < 0 ? Math.PI : 0;
+      if (livingOn) {
+        // en el living: aparece en el hall, mirando hacia el estar
+        nav.x = 32; nav.z = 5;
+        nav.dragYaw = Math.PI;
+      } else {
+        // aparece al lado del lanzador, mirando hacia el blanco
+        nav.x = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, state.thrower.x + 8));
+        nav.z = Math.min(NAV_BOUND, Math.max(-NAV_BOUND, state.thrower.z + 14));
+        nav.dragYaw = state.dir < 0 ? Math.PI : 0;
+      }
       nav.dragPitch = nav.gyroYaw = nav.gyroPitch = nav.joyF = nav.joyS = 0;
       navQ.ref = null;                         // la pose actual del teléfono pasa a ser el origen
       navTargetYaw = navTargetPitch = 0;       // y el personaje arranca mirando al frente, derecho
@@ -5782,23 +5817,36 @@
       m.obj.rotation.y = -a + (m.speed < 0 ? Math.PI / 2 : -Math.PI / 2);
     }
   }
+  // ocultar/restaurar todo lo del juego, compartido por los modos "vitrina"
+  // (Renders y Living)
+  function hideGameplayScene() {
+    envGroup.visible = false;
+    for (const key in THROWERS) THROWERS[key].visible = false;
+    basketGroup.visible = trashGroup.visible = hoopGroup.visible = false;
+    bullseyeGroup.visible = ringGroup.visible = goalGroup.visible = gkGroup.visible = false;
+    wallDummies.forEach((d) => d.visible = false);
+    pedestal.visible = pedestalCap.visible = false;
+    arrow.visible = false;
+    cowPlush.visible = pupPlush.visible = false;
+    clearTrails();
+  }
+  function restoreGameplayScene() {
+    envGroup.visible = true;
+    ground.visible = true;
+    arrow.visible = true;
+    applyScenario();   // restaura lanzador, blanco y color del piso
+    newLevel(true);    // re-arma el nivel limpio
+  }
   function setRenders(on) {
     if (state.banana) return;              // no cambiar en pleno vuelo
     if (on && navOn) setNav(false);        // un modo especial a la vez
+    if (on && livingOn) setLiving(false);
     rendersOn = on;
     document.body.classList.toggle("renders", on);
     rendersBtn.textContent = on ? "🦌 Renders ON" : "🦌 Renders";
     rendersBtn.classList.toggle("on", on);
     if (on) {
-      envGroup.visible = false;
-      for (const key in THROWERS) THROWERS[key].visible = false;
-      basketGroup.visible = trashGroup.visible = hoopGroup.visible = false;
-      bullseyeGroup.visible = ringGroup.visible = goalGroup.visible = gkGroup.visible = false;
-      wallDummies.forEach((d) => d.visible = false);
-      pedestal.visible = pedestalCap.visible = false;
-      arrow.visible = false;
-      cowPlush.visible = pupPlush.visible = false;
-      clearTrails();
+      hideGameplayScene();
       ground.material.color.setHex(0x2e5e1f);   // pradera limpia
       if (!rendersLoaded) loadRenders();
       rendersGroup.visible = true;
@@ -5806,13 +5854,305 @@
       showBanner("🦌 RENDERS", "Modelos 3D importados (glTF) galopando y volando ✨", 2800);
     } else {
       rendersGroup.visible = false;
-      envGroup.visible = true;
-      arrow.visible = true;
-      applyScenario();   // restaura lanzador, blanco y color del piso
-      newLevel(true);    // re-arma el nivel limpio
+      restoreGameplayScene();
     }
   }
   rendersBtn.addEventListener("click", () => setRenders(!rendersOn));
+
+  // ------------------------------------------------ modo Living 🛋️
+  // Recreación del living REAL de la casa (armada a partir de fotos):
+  // ambiente integrado living + comedor + hall con escalera. La estructura
+  // (piso, paredes, ventanas, columnas, cuadros) es procedural y todos los
+  // muebles son .glb DESCARGADOS del Furniture Kit de Kenney (CC0,
+  // kenney.nl) en assets/models/living/. Se puede orbitar/zoomear como
+  // siempre y recorrer con el modo paseo, que acá tiene COLISIONES: no se
+  // pasa por encima de los muebles ni se atraviesan las paredes.
+  const livingBtn = document.getElementById("livingBtn");
+  let livingOn = false, livingLoaded = false, livingModels = 0;
+  let livingGroup = null;
+  // sala: 84 × 42 (≈ 13 m × 6,5 m a escala del juego); paredes de 18 de alto
+  const LIV = { x0: -42, x1: 42, z0: -21, z1: 21, h: 18, wallT: 1.2 };
+  const KENNEY_SCALE = 6.5;   // el kit viene en metros: ~6,5 unidades por metro
+  // mueble: archivo + posición + rotación (grados) + tinte opcional
+  const LIVING_ITEMS = [
+    // --- zona de estar (izquierda): sillones en L + sofá marrón enfrentado
+    { file: "loungeSofa", x: -36, z: 4, rot: 90, tint: 0xd8cfbc },      // sillón crema contra la ventana
+    { file: "loungeSofa", x: -21, z: 14, rot: 180, tint: 0xd8cfbc },    // sillón crema de espaldas al frente
+    { file: "loungeSofaLong", x: -21, z: -14.5, rot: 0, tint: 0x6b4a33 }, // sofá marrón contra la pared
+    { file: "tableCoffee", x: -21, z: 0, rot: 0, tint: 0x4a3220 },      // mesa ratona de madera oscura
+    { file: "cabinetTelevision", x: -4, z: -17, rot: 0, tint: 0x3d2b1c },
+    { file: "televisionModern", x: -4, z: -17, y: 3.4, rot: 0 },        // la tele sobre el mueble
+    { file: "pottedPlant", x: -38.5, z: 17.5, rot: 0 },                 // plantita de la esquina
+    // --- rincón de juegos de los chicos (derecha del estar)
+    { file: "rugRectangle", x: 2, z: 12, rot: 0, tint: 0x4a8a3a, scale: 1.6 },  // alfombra de calles
+    { file: "tableCross", x: 2, z: 12, rot: 15, scale: 0.62, tint: 0xf2ede2 },  // mesita infantil blanca
+    { file: "chair", x: -1.5, z: 15, rot: -140, scale: 0.62, tint: 0xa8763e },  // sillitas de madera
+    { file: "chair", x: 5.5, z: 9, rot: 40, scale: 0.62, tint: 0xa8763e },
+    { file: "benchCushionLow", x: 8, z: 18, rot: 180, tint: 0xf2ede2 }, // mueble bajo de juguetes
+    // --- comedor (centro-derecha, tras las columnas)
+    { file: "table", x: 17, z: -3, rot: 90, tint: 0x3d2b1c },           // mesa grande de madera oscura
+    { file: "chairCushion", x: 12, z: -8, rot: 0, tint: 0x4a3220 },
+    { file: "chairCushion", x: 17, z: -8, rot: 0, tint: 0x4a3220 },
+    { file: "chairCushion", x: 22, z: -8, rot: 0, tint: 0x4a3220 },
+    { file: "chairCushion", x: 12, z: 2, rot: 180, tint: 0x4a3220 },
+    { file: "chairCushion", x: 17, z: 2, rot: 180, tint: 0x4a3220 },
+    { file: "chairCushion", x: 22, z: 2, rot: 180, tint: 0x4a3220 },
+    { file: "bookcaseClosedWide", x: 13, z: -19, rot: 0, tint: 0xf2ede2 },   // vitrina blanca grande
+    { file: "bookcaseClosedDoors", x: 24, z: -19, rot: 0, tint: 0xf2ede2 },  // segunda vitrina
+    { file: "speaker", x: 7.5, z: -18.5, rot: 20, scale: 0.8 },         // equipo de música en el piso
+    { file: "plantSmall2", x: 6, z: -14, rot: 0, scale: 1.2 },          // la dracena de la columna
+    // --- hall de entrada (derecha)
+    { file: "doorwayFront", x: 40.6, z: 0, rot: -90, tint: 0xf2ede2 },  // puerta principal blanca
+    { file: "rugDoormat", x: 35, z: 0, rot: 90 },                       // alfombrita de entrada
+    { file: "sideTableDrawers", x: 34, z: -18.5, rot: 0, tint: 0x3d2b1c }, // mesita con cajones
+    { file: "radio", x: 34, z: -18.5, y: 4.6, rot: -15, scale: 0.7 },   // la radio vintage encima
+    { file: "coatRackStanding", x: 39, z: -15, rot: 0, tint: 0x3d2b1c },// perchero con camperas
+    { file: "stairsOpen", x: 33, z: 15.5, rot: 180, tint: 0xa8763e, scale: 1.35 }, // la escalera de madera
+    { file: "pottedPlant", x: 39, z: 8, rot: 0, scale: 0.85 },
+  ];
+  function livingCanvasTex(w, h, draw) {
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    draw(c.getContext("2d"));
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  }
+  function buildLivingShell(group) {
+    // piso de porcelanato beige con juntas
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(LIV.x1 - LIV.x0, LIV.z1 - LIV.z0),
+      new THREE.MeshStandardMaterial({
+        map: livingCanvasTex(512, 256, (g) => {
+          g.fillStyle = "#ddd6c8"; g.fillRect(0, 0, 512, 256);
+          g.strokeStyle = "rgba(150,140,120,.5)"; g.lineWidth = 2;
+          for (let x = 0; x <= 512; x += 64) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 256); g.stroke(); }
+          for (let y = 0; y <= 256; y += 64) { g.beginPath(); g.moveTo(0, y); g.lineTo(512, y); g.stroke(); }
+        }),
+        roughness: 0.35,
+      })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0.06;
+    floor.receiveShadow = true;
+    group.add(floor);
+    // paredes crema perimetrales; la del frente es BAJA (estilo casa de
+    // muñecas) para poder mirar adentro orbitando — pero igual bloquea el paseo
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xe6e0d2, roughness: 0.95 });
+    const mkWall = (w, d, x, z, h = LIV.h) => {
+      const m = new THREE.Mesh(boxGeo, wallMat);   // boxGeo está anclado a la base
+      m.scale.set(w, h, d);
+      m.position.set(x, 0, z);
+      m.receiveShadow = true;
+      group.add(m);
+      return m;
+    };
+    mkWall(LIV.x1 - LIV.x0 + LIV.wallT * 2, LIV.wallT, 0, LIV.z0 - LIV.wallT / 2);       // fondo
+    mkWall(LIV.x1 - LIV.x0 + LIV.wallT * 2, LIV.wallT, 0, LIV.z1 + LIV.wallT / 2, 5.5);  // frente (bajita)
+    mkWall(LIV.wallT, LIV.z1 - LIV.z0, LIV.x0 - LIV.wallT / 2, 0);                       // izquierda
+    mkWall(LIV.wallT, LIV.z1 - LIV.z0, LIV.x1 + LIV.wallT / 2, 0);                       // derecha (entrada)
+    // luz cálida interior (los spots del techo de casa)
+    for (const lx of [-21, 17]) {
+      const warm = new THREE.PointLight(0xfff0d6, 0.55, 110, 1.4);
+      warm.position.set(lx, LIV.h - 2, 0);
+      group.add(warm);
+    }
+    // ventanas con marco blanco, reja y jardín detrás (como las de casa)
+    const gardenTex = livingCanvasTex(256, 128, (g) => {
+      const sky = g.createLinearGradient(0, 0, 0, 128);
+      sky.addColorStop(0, "#bfe0f2"); sky.addColorStop(0.55, "#dff0f8"); sky.addColorStop(0.6, "#7db65a"); sky.addColorStop(1, "#4e8a3c");
+      g.fillStyle = sky; g.fillRect(0, 0, 256, 128);
+      g.fillStyle = "#3e6e30";
+      for (const [tx, ty, r] of [[40, 62, 16], [200, 58, 20], [120, 66, 12]]) { g.beginPath(); g.arc(tx, ty, r, 0, Math.PI * 2); g.fill(); }
+    });
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0xf6f4ee, roughness: 0.6 });
+    function mkWindow(w, h, x, y, z, rotY) {
+      const win = new THREE.Group();
+      const glass = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: gardenTex, roughness: 0.9 }));
+      win.add(glass);
+      for (const [bw, bh, bx, by] of [[w + 1, 0.8, 0, h / 2], [w + 1, 0.8, 0, -h / 2], [0.8, h, -w / 2, 0], [0.8, h, w / 2, 0], [0.5, h, 0, 0], [w, 0.5, 0, 0]]) {
+        const bar = new THREE.Mesh(boxGeo, frameMat);
+        bar.scale.set(bw, bh, 0.5);
+        bar.position.set(bx, by, 0.15);
+        win.add(bar);
+      }
+      // rejitas horizontales blancas
+      for (let i = 1; i < 5; i++) {
+        const r = new THREE.Mesh(boxGeo, frameMat);
+        r.scale.set(w, 0.16, 0.2);
+        r.position.set(0, -h / 2 + (h / 5) * i, 0.3);
+        win.add(r);
+      }
+      win.position.set(x, y, z);
+      win.rotation.y = rotY;
+      group.add(win);
+    }
+    mkWindow(16, 11, LIV.x0 + 0.35, 9.5, 2, Math.PI / 2);         // ventanal grande de la izquierda
+    mkWindow(12, 11, LIV.x0 + 0.35, 9.5, -13, Math.PI / 2);       // segunda hoja del ventanal
+    mkWindow(9, 10, 36.5, 9.5, LIV.z0 + 0.35, 0);                 // ventana del hall (al fondo)
+    // columnas y vigas blancas que separan el estar del comedor y el hall
+    const colMat = new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.9 });
+    for (const cz of [-9, 9]) {
+      const col = new THREE.Mesh(boxGeo, colMat);
+      col.scale.set(2.2, LIV.h, 2.2);
+      col.position.set(4.5, 0, cz);
+      col.castShadow = true;
+      group.add(col);
+    }
+    for (const bx of [4.5, 28]) {
+      const beam = new THREE.Mesh(boxGeo, colMat);
+      beam.scale.set(2.4, 2.6, LIV.z1 - LIV.z0);
+      beam.position.set(bx, LIV.h - 2.6, 0);
+      group.add(beam);
+    }
+    // cuadros: dos abstractos en el estar y la noche estrellada en el comedor
+    const artAbstract = (seed) => livingCanvasTex(256, 128, (g) => {
+      g.fillStyle = "#f2efe8"; g.fillRect(0, 0, 256, 128);
+      const cols = ["#3fb8c9", "#e8a13a", "#2b2f38", "#e8e2d4", "#c9622f"];
+      for (let i = 0; i < 26; i++) {
+        g.fillStyle = cols[(i + seed) % cols.length];
+        g.globalAlpha = 0.55;
+        g.beginPath();
+        g.ellipse(40 + ((i * 53 + seed * 31) % 190), 30 + ((i * 37) % 70), 5 + (i * 7) % 30, 4 + (i * 5) % 14, i, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.globalAlpha = 1;
+    });
+    const starry = livingCanvasTex(256, 192, (g) => {
+      g.fillStyle = "#1b2a6b"; g.fillRect(0, 0, 256, 192);
+      g.strokeStyle = "#4a6ab8"; g.lineWidth = 5;
+      for (let i = 0; i < 7; i++) { g.beginPath(); g.arc(60 + i * 10, 60, 14 + i * 5, 0.5, 2.6); g.stroke(); }
+      g.fillStyle = "#f2d24a";
+      g.beginPath(); g.arc(210, 40, 14, 0, Math.PI * 2); g.fill();
+      for (let i = 0; i < 12; i++) { g.beginPath(); g.arc((i * 47) % 256, 20 + (i * 29) % 80, 3, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = "#12203c";
+      g.beginPath(); g.moveTo(20, 192); g.quadraticCurveTo(40, 60, 60, 192); g.fill();
+    });
+    function mkArt(tex, w, h, x, y, z, rotY) {
+      const art = new THREE.Group();
+      const frame = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({ color: 0x2b2622, roughness: 0.7 }));
+      frame.scale.set(w + 0.7, h + 0.7, 0.4);
+      frame.position.y = -(h + 0.7) / 2;   // centrar el marco sobre la tela
+      art.add(frame);
+      const canvasM = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+      canvasM.position.z = 0.25;
+      art.add(canvasM);
+      art.position.set(x, y, z);
+      art.rotation.y = rotY;
+      group.add(art);
+    }
+    mkArt(artAbstract(0), 12, 5.5, -21, 12.5, LIV.z0 + 0.7, 0);          // sobre el sofá marrón
+    mkArt(artAbstract(2), 9, 5, -34, 12.5, LIV.z0 + 0.7, 0);             // el otro abstracto
+    mkArt(starry, 7, 5.5, 17, 12.5, LIV.z0 + 0.7, 0);                    // la noche estrellada
+    // radiadores blancos y aire acondicionado
+    const radMat = new THREE.MeshStandardMaterial({ color: 0xf4f2ec, roughness: 0.6 });
+    for (const rz of [10, -14]) {
+      const rad = new THREE.Mesh(boxGeo, radMat);
+      rad.scale.set(8, 4.2, 0.9);
+      rad.position.set(LIV.x0 + 0.9, 0.4, rz);
+      rad.rotation.y = Math.PI / 2;
+      group.add(rad);
+    }
+    const ac = new THREE.Mesh(boxGeo, radMat);
+    ac.scale.set(6.5, 2.2, 1.6);
+    ac.position.set(-11, 14.5, LIV.z0 + 1);
+    group.add(ac);
+    // reloj de péndulo de madera
+    const clockG = new THREE.Group();
+    const clockBody = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({ color: 0x4a3220, roughness: 0.7 }));
+    clockBody.scale.set(2.2, 4.6, 0.8);
+    clockG.add(clockBody);
+    const face = new THREE.Mesh(new THREE.CircleGeometry(0.85, 20), new THREE.MeshStandardMaterial({ color: 0xf2edda, roughness: 0.5 }));
+    face.position.set(0, 3.1, 0.45);
+    clockG.add(face);
+    clockG.position.set(-2, 11, LIV.z0 + 0.6);
+    group.add(clockG);
+    // el puf pelota Tango (esfera con la textura de la pelota de fútbol)
+    const tango = new THREE.Mesh(
+      new THREE.SphereGeometry(3.1, 22, 18),
+      new THREE.MeshStandardMaterial({ map: soccerTexture(), roughness: 0.85 })
+    );
+    tango.position.set(-13, 2.6, 6);
+    tango.scale.y = 0.82;    // apoyado y un poco aplastado, como puf
+    tango.castShadow = true;
+    group.add(tango);
+  }
+  function loadLiving() {
+    livingLoaded = true;
+    livingGroup = new THREE.Group();
+    livingGroup.visible = livingOn;
+    scene.add(livingGroup);
+    buildLivingShell(livingGroup);
+    const loader = new THREE.GLTFLoader();
+    for (const it of LIVING_ITEMS) {
+      loader.load("assets/models/living/" + it.file + ".glb", (gltf) => {
+        const obj = gltf.scene;
+        obj.traverse((o) => {
+          if (o.isMesh) {
+            o.castShadow = true;
+            if (it.tint) {
+              // los materiales de Kenney usan una textura-atlas: para forzar
+              // nuestro color (el de la foto) hay que sacarla, no multiplicarla
+              const tinted = (m) => {
+                const c = m.clone();
+                c.map = null;
+                c.vertexColors = false;   // Kenney también pinta por vértice
+                c.color.setHex(it.tint);
+                c.needsUpdate = true;
+                return c;
+              };
+              o.material = Array.isArray(o.material) ? o.material.map(tinted) : tinted(o.material);
+            }
+          }
+        });
+        obj.scale.setScalar(KENNEY_SCALE * (it.scale || 1));
+        obj.position.set(it.x, it.y || 0, it.z);
+        obj.rotation.y = ((it.rot || 0) * Math.PI) / 180;
+        livingGroup.add(obj);
+        livingModels++;
+      }, undefined, () => { livingModels++; /* si falta un mueble, el resto sigue */ });
+    }
+  }
+  // el cielo nocturno del juego no pinta nada adentro de casa
+  function setAmbientVisible(v) {
+    sky.visible = v;
+    starMat.visible = v;
+    moon.visible = moonGlow.visible = v;
+    for (const { c } of clouds) c.visible = v;
+    shootingStar.visible = v;
+    leafGroup.visible = v;
+  }
+  function setLiving(on) {
+    if (state.banana) return;
+    if (on && rendersOn) setRenders(false);
+    livingOn = on;
+    document.body.classList.toggle("living", on);
+    livingBtn.textContent = on ? "🛋️ Living ON" : "🛋️ Living";
+    livingBtn.classList.toggle("on", on);
+    if (on) {
+      hideGameplayScene();
+      ground.visible = false;             // el living tiene su propio piso
+      setAmbientVisible(false);
+      scene.background = new THREE.Color(0xb9c6d0);   // luz de día suave
+      if (!livingLoaded) loadLiving();
+      livingGroup.visible = true;
+      navObstacles = livingGroup;         // el paseo choca con muebles y paredes
+      // encuadre tipo maqueta: desde arriba del frente, mirando adentro
+      camera.position.set(-4, 58, 84);
+      controls.target.set(-4, 2, 0);
+      controls.update();
+      showBanner("🛋️ EL LIVING DE CASA", "Muebles glTF descargados · orbitá, hacé zoom o entrá con 🚶 Navegar", 3200);
+    } else {
+      if (navOn) setNav(false);           // salir del paseo si estaba adentro
+      navObstacles = null;
+      livingGroup.visible = false;
+      setAmbientVisible(true);
+      scene.background = null;
+      restoreGameplayScene();
+      resetView();
+    }
+  }
+  livingBtn.addEventListener("click", () => setLiving(!livingOn));
 
   window.addEventListener("keydown", (e) => {
     const bump = (input, delta, out, suffix) => {
@@ -5844,12 +6184,18 @@
   // Arranque
   // ==================================================================
   window.__game = {
-    state, CFG, SCENARIOS, HOOP, camera, controls, switchScenario, newLevel, nav,
+    state, CFG, SCENARIOS, HOOP, camera, controls, scene, switchScenario, newLevel, nav,
     renders: () => ({
       on: rendersOn,
       models: rendersGroup ? rendersGroup.children.length : 0,
       mixers: rendersMixers.length,
       x0: rendersGroup && rendersGroup.children[0] ? rendersGroup.children[0].position.x : null,
+    }),
+    living: () => ({
+      on: livingOn,
+      models: livingModels,
+      total: LIVING_ITEMS.length,
+      collisions: !!navObstacles,
     }),
   };
   onResize();
