@@ -74,4 +74,6 @@ juego se lee y se manipula por ahí.
   "sin conexión" del juego, manejado a propósito).
 - CI: `.github/workflows/tests.yml` corre la suite en cada push (no bloquea
   los deploys; para que los bloquee, agregá `needs: test` a los otros
-  workflows).
+  workflows). El Chromium de Playwright queda **cacheado entre corridas**
+  (clave = versión de Playwright): solo se re-descarga al actualizar la
+  dependencia; en el resto de las corridas solo corre `install-deps` (apt).

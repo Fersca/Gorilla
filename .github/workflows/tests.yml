@@ -29,8 +29,26 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Instalar Chromium de Playwright
+      # El Chromium de Playwright (~150 MB) se cachea entre corridas, con la
+      # versión de Playwright como clave: solo se descarga cuando cambia.
+      - name: Versión de Playwright
+        id: pw
+        run: echo "version=$(node -e "console.log(require('@playwright/test/package.json').version)")" >> "$GITHUB_OUTPUT"
+
+      - name: Caché de Chromium
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Instalar Chromium de Playwright (solo si no está cacheado)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Dependencias del sistema (cuando el navegador vino del caché)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Correr la suite
         run: npm test
