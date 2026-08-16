@@ -207,7 +207,7 @@
     max-width: 300px;
   }
   .aboutMsg b { color: var(--accent); }
-  #rankOverlay, #installOverlay, #scenOverlay, #aboutOverlay, #choiceOverlay {
+  #rankOverlay, #installOverlay, #scenOverlay, #aboutOverlay, #choiceOverlay, #netOverlay {
     position: fixed;
     inset: 0;
     display: none;
@@ -218,10 +218,68 @@
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
   }
-  #rankOverlay.show, #installOverlay.show, #scenOverlay.show, #aboutOverlay.show, #choiceOverlay.show { display: flex; }
+  #rankOverlay.show, #installOverlay.show, #scenOverlay.show, #aboutOverlay.show, #choiceOverlay.show, #netOverlay.show { display: flex; }
+
+  /* ---------- partida de a dos ---------- */
+  #netCard { max-width: 360px; max-height: 88vh; overflow-y: auto; }
+  .netMsg { font-size: 14px; line-height: 1.55; max-width: 320px; margin: 2px 0; }
+  .netMsg b { color: var(--accent); }
+  .netBtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 100%; }
+  .netBtn {
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 12px;
+    padding: 10px 16px;
+    cursor: pointer;
+    touch-action: manipulation;
+    flex: 1 1 auto;
+  }
+  .netBtn:active { transform: scale(.97); }
+  .netBtn.netDanger { color: #ff9d8e; border-color: rgba(255,120,100,.35); }
+  .netInput {
+    width: 100%;
+    min-height: 54px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--text);
+    background: rgba(0,0,0,.35);
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 10px;
+    padding: 8px 10px;
+    resize: vertical;
+  }
+  .netQR {
+    width: 100%;
+    max-width: 260px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+  }
+  .netQR img { display: block; width: 100%; }
+  #netTurnChip.on { border-color: var(--accent); color: var(--accent); }
+  .netSplit { display: flex; flex-direction: column; gap: 10px; align-items: center; width: 100%; }
+  .netSplitCol { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  /* celular apaisado: QR a un lado y los pasos al otro, para que entre todo */
+  @media (max-height: 520px) {
+    #netCard { padding: 12px 18px; gap: 6px; max-width: 620px; }
+    #netCard h2 { font-size: 16px; margin-bottom: 2px; }
+    .netMsg { font-size: 12px; line-height: 1.4; }
+    .netQR { max-width: 172px; padding: 6px; }
+    .netBtn { font-size: 13px; padding: 7px 12px; }
+    .netInput { min-height: 36px; }
+    #netCard .rankHint { margin-top: 2px; }
+    .netSplit { flex-direction: row; align-items: flex-start; gap: 14px; }
+    .netSplitCol { min-width: 210px; }
+  }
   #installCard p { font-size: 14px; line-height: 1.55; max-width: 300px; }
   #installCard b { color: var(--accent); }
-  #installCard, #rankCard, #scenCard, #aboutCard, #choiceCard {
+  #installCard, #rankCard, #scenCard, #aboutCard, #choiceCard, #netCard {
     background: var(--panel-bg);
     border: 1px solid var(--panel-border);
     border-radius: 18px;
@@ -230,7 +288,8 @@
     max-width: 92vw;
     box-shadow: 0 24px 70px rgba(0,0,0,.6);
   }
-  #rankCard h2, #installCard h2, #scenCard h2, #aboutCard h2, #choiceCard h2 { font-size: 20px; margin-bottom: 14px; color: var(--accent); text-align: center; }
+  #rankCard h2, #installCard h2, #scenCard h2, #aboutCard h2, #choiceCard h2, #netCard h2 { font-size: 20px; margin-bottom: 14px; color: var(--accent); text-align: center; }
+  #netCard { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   #rankCard table { width: 100%; border-collapse: collapse; font-size: 14px; }
   #rankCard th, #rankCard td { padding: 7px 10px; text-align: right; white-space: nowrap; }
   #rankCard th:first-child, #rankCard td:first-child { text-align: left; }
@@ -407,6 +466,7 @@
     <div class="chip">🏆 Nivel <b id="levelTxt">1</b></div>
     <div class="chip">🎯 Intentos <b id="triesTxt">0</b></div>
     <div class="chip" id="windChip" style="display:none"><span id="windArrow">→</span> <b id="windTxt">0</b></div>
+    <div class="chip" id="netTurnChip" style="display:none"></div>
   </div>
   <div class="hudGroup">
     <div class="hudGroup" id="hudMenu">
@@ -414,6 +474,7 @@
       <button class="chip" id="rankBtn">🏆 Ranking</button>
       <button class="chip" id="aboutBtn">ℹ️ Acerca de…</button>
       <button class="chip" id="windBtn">💨 ON</button>
+      <button class="chip" id="netBtn">👥 De a dos</button>
       <button class="chip" id="navBtn">🚶 Navegar</button>
       <button class="chip" id="livingBtn">🛋️ Living</button>
       <button class="chip" id="rendersBtn">🦌 Renders</button>
@@ -459,6 +520,14 @@
   <div id="scenCard">
     <h2>Elegí escenario</h2>
     <div id="scenList"></div>
+  </div>
+</div>
+
+<div id="netOverlay">
+  <div id="netCard">
+    <h2 id="netTitle">👥 Jugar de a dos</h2>
+    <div id="netBody"></div>
+    <p class="rankHint">tocá afuera para cerrar</p>
   </div>
 </div>
 
@@ -645,6 +714,22 @@
     wall: { n: 0, x: 0, z: 0, half: 0 }, // barrera
   };
   const scen = () => SCENARIOS[state.scenKey];
+
+  // ------------------------------------------------ partida de a dos (P2P)
+  // Estado de la conexión navegador-a-navegador. `forced` es el nivel que
+  // manda el anfitrión: placeLevel() y setWind() lo aplican tal cual para que
+  // los dos jugadores vean exactamente la misma cancha.
+  const net = {
+    on: false,          // hay partida de a dos en curso
+    isHost: false,      // el anfitrión maneja vaquita 🐄 y reparte los niveles
+    status: "idle",     // idle | esperando | conectando | conectado | cortado
+    pc: null, dc: null,
+    forced: null,       // nivel dictado por el anfitrión (mientras se aplica)
+    myChar: "cow",      // qué peluche manejo yo
+    score: { me: 0, them: 0 },
+    remoteShot: false,  // el tiro en curso lo mandó el otro jugador
+  };
+  const netMyTurn = () => !net.on || state.farm.turn === net.myChar;
 
   // ------------------------------------------------ récords persistentes
   let records = {};
@@ -4515,6 +4600,13 @@
       k.x = d * rand(12, 44);
       const zAmp = Math.min(22, 2 + state.level * 4);
       k.z = rand(-zAmp, Math.min(zAmp, 16));
+      // partida de a dos: el anfitrión manda el nivel y acá se aplica igual
+      if (net.forced) {
+        state.thrower.x = net.forced.px;
+        state.thrower.z = net.forced.pz;
+        k.x = net.forced.tx;
+        k.z = net.forced.tz;
+      }
       k.rot = 0;
       k.pedestalH = 0;
       k.baseY = 0;
@@ -4642,7 +4734,7 @@
   // ON = sopla siempre (se nota y se ven las hojas); OFF = tiro limpio.
   // El viento es un vector: empuja adelante/atrás (x) Y hacia los costados (z).
   function setWind() {
-    if (!state.windEnabled) {
+    if (!state.windEnabled && !net.forced) {
       state.wind = 0;
       state.windZ = 0;
       ui.windChip.style.display = "none";
@@ -4655,15 +4747,22 @@
     const dir = rand(0, Math.PI * 2);
     state.wind = Math.cos(dir) * mag;
     state.windZ = Math.sin(dir) * mag;
+    // partida de a dos: los dos juegan con el viento que mandó el anfitrión
+    if (net.forced) {
+      state.wind = net.forced.w;
+      state.windZ = net.forced.wz;
+    }
+    const mag2 = Math.hypot(state.wind, state.windZ);
+    if (mag2 < 0.001) { ui.windChip.style.display = "none"; return; }
+    ui.windTxt.textContent = Math.round(mag2 * 10);
     ui.windChip.style.display = "flex";
-    ui.windTxt.textContent = Math.round(mag * 10);
     // flecha de 8 rumbos en coordenadas de pantalla (+x derecha, -z arriba/fondo)
     const a = Math.atan2(-state.windZ, state.wind);
     const dirs = ["→", "↗", "↑", "↖", "←", "↙", "↓", "↘"];
     ui.windArrow.textContent = dirs[((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8];
   }
 
-  function newLevel(first = false) {
+  function newLevel(first = false, bannerTitle) {
     const sc = scen();
     if (sc.randomEnv || !envGroup || envGroup.userData.scen !== state.scenKey) {
       makeEnv();
@@ -4677,8 +4776,9 @@
     handItem().visible = true;
     state.celebrating = false;
     ui.levelTxt.textContent = state.level;
-    ui.throwBtn.disabled = ui.gyroThrow.disabled = false;
-    if (!first) showBanner(`¡NIVEL ${state.level}!`, sc.moveMsg);
+    ui.throwBtn.disabled = ui.gyroThrow.disabled = !netMyTurn();
+    if (!first) showBanner(bannerTitle || `¡NIVEL ${state.level}!`, sc.moveMsg);
+    netAfterNewLevel();   // partida de a dos: repartir/aplicar el nivel y el turno
   }
 
   function applyScenario() {
@@ -4748,6 +4848,10 @@
   // ==================================================================
   function throwBanana() {
     if (state.banana || state.celebrating || rendersOn || livingOn) return;
+    if (net.on && !net.remoteShot) {
+      if (!netMyTurn()) return;                  // no es tu turno: no se puede tirar
+      netSend({ k: "shot", a: +ui.angle.value, y: +ui.yaw.value, p: +ui.power.value });
+    }
     const angle = (+ui.angle.value) * Math.PI / 180;
     const yaw = (+ui.yaw.value) * Math.PI / 180;
     const v0 = (+ui.power.value) * CFG.powerToV;
@@ -4797,13 +4901,24 @@
                      : scen().target === "plush" ? "🧸 ¡PELOTAZO!"
                      : "🎯 ¡EMBOCASTE!";
       // en la granja, el peluche que ligó el pelotazo tira en el próximo nivel
-      if (scen().target === "plush") state.farm.turn = state.farm.turn === "cow" ? "pup" : "cow";
+      if (scen().target === "plush") {
+        // de a dos: el pelotazo suma para el que tiró
+        if (net.on) {
+          if (state.farm.turn === net.myChar) net.score.me++; else net.score.them++;
+        }
+        state.farm.turn = state.farm.turn === "cow" ? "pup" : "cow";
+      }
       showBanner(hitTitle, isRecord ? `Nivel ${state.level} superado · 🏆 ¡récord nuevo!` : `Nivel ${state.level} superado`, 1600);
       setTimeout(() => { state.level++; newLevel(); }, 1900);
     } else {
       sndMiss();
       handItem().visible = true;
-      ui.throwBtn.disabled = ui.gyroThrow.disabled = false;
+      ui.throwBtn.disabled = ui.gyroThrow.disabled = net.on;
+      // de a dos: si errás también le toca al otro (como el GORILLA.BAS original)
+      if (net.on && scen().target === "plush") {
+        state.farm.turn = state.farm.turn === "cow" ? "pup" : "cow";
+        setTimeout(() => newLevel(false, "🔄 ¡LE TOCA AL OTRO!"), 1300);
+      }
     }
   }
 
@@ -5372,7 +5487,7 @@
   // GAME_VERSION es la versión del contenido del juego (se incrementa en cada
   // release); el deploy publica version.json con este mismo número. Al abrir,
   // si el sitio tiene una versión más nueva, se baja el contenido nuevo.
-  const GAME_VERSION = 7;
+  const GAME_VERSION = 8;
   const PAGES_URL = "https://fersca.github.io/Gorilla/";
   document.getElementById("verTxt").textContent = "versión " + GAME_VERSION;
   async function checkForUpdate() {
@@ -6154,6 +6269,409 @@
   }
   livingBtn.addEventListener("click", () => setLiving(!livingOn));
 
+  // ==================================================================
+  // Partida de a dos 👥 — navegador a navegador, sin servidor
+  // ==================================================================
+  // WebRTC con "signaling" a mano: el que crea la partida genera una
+  // invitación (su descripción SDP con todos sus candidatos ICE ya dentro,
+  // comprimida en texto) y se la pasa al otro por QR o por WhatsApp; el otro
+  // devuelve su respuesta por la misma vía. A partir de ahí la conexión es
+  // directa entre los dos teléfonos y no interviene nadie más.
+  //
+  // Como la física es determinista, por la red viajan solo los tres números
+  // del tiro: cada navegador simula la misma trayectoria. El anfitrión reparte
+  // además la cancha de cada nivel (posiciones y viento) para que los dos
+  // vean lo mismo.
+  const netBtn = document.getElementById("netBtn");
+  const netOverlay = document.getElementById("netOverlay");
+  const netBody = document.getElementById("netBody");
+  const netTitle = document.getElementById("netTitle");
+  const netTurnChip = document.getElementById("netTurnChip");
+  const ICE = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
+
+  // ---------- empaquetado del SDP: comprimido y en base64url para que entre
+  // en un QR y en un link de WhatsApp
+  async function packSDP(desc) {
+    // los candidatos TCP casi nunca sirven para un canal de datos y ocupan
+    // mucho: sacarlos achica el QR sin perder conectividad real
+    const sdp = desc.sdp.split("\n").filter((l) => !/^a=candidate:.* tcptype /.test(l)).join("\n");
+    const raw = JSON.stringify({ t: desc.type[0], s: sdp });
+    if (!window.CompressionStream) return "u" + btoa(unescape(encodeURIComponent(raw)));
+    const cs = new CompressionStream("deflate-raw");
+    const buf = await new Response(new Blob([raw]).stream().pipeThrough(cs)).arrayBuffer();
+    let bin = "";
+    for (const b of new Uint8Array(buf)) bin += String.fromCharCode(b);
+    return "z" + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  async function unpackSDP(txt) {
+    const s = txt.trim().replace(/^.*#inv=/, "").replace(/^.*#res=/, "").trim();
+    const body = s.slice(1).replace(/-/g, "+").replace(/_/g, "/");
+    let raw;
+    if (s[0] === "u") {
+      raw = decodeURIComponent(escape(atob(body)));
+    } else {
+      const bin = atob(body);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const ds = new DecompressionStream("deflate-raw");
+      raw = await new Response(new Blob([bytes]).stream().pipeThrough(ds)).text();
+    }
+    const o = JSON.parse(raw);
+    return { type: o.t === "o" ? "offer" : "answer", sdp: o.s };
+  }
+  // espera a que el navegador termine de juntar sus direcciones: así queda
+  // UNA sola invitación en vez de un goteo de candidatos
+  function iceComplete(pc) {
+    if (pc.iceGatheringState === "complete") return Promise.resolve();
+    return new Promise((res) => {
+      const done = () => { clearTimeout(to); pc.removeEventListener("icegatheringstatechange", chk); res(); };
+      const chk = () => { if (pc.iceGatheringState === "complete") done(); };
+      pc.addEventListener("icegatheringstatechange", chk);
+      const to = setTimeout(done, 4000);   // con lo juntado hasta acá alcanza
+    });
+  }
+
+  function netSend(msg) {
+    if (net.dc && net.dc.readyState === "open") {
+      try { net.dc.send(JSON.stringify(msg)); } catch (e) { /* se cortó */ }
+    }
+  }
+  function netStatus(s, txt) {
+    net.status = s;
+    if (txt) netTitle.textContent = txt;
+    netBtn.classList.toggle("on", s === "conectado");
+    netBtn.textContent = s === "conectado" ? "👥 De a dos ON" : "👥 De a dos";
+    netUpdateTurnChip();
+  }
+  function netUpdateTurnChip() {
+    if (!net.on) { netTurnChip.style.display = "none"; return; }
+    netTurnChip.style.display = "flex";
+    const mine = netMyTurn();
+    netTurnChip.textContent = `${net.myChar === "cow" ? "🐄" : "🐶"} ${net.score.me} – ${net.score.them} · ${mine ? "¡tu turno!" : "espera…"}`;
+    netTurnChip.classList.toggle("on", mine);
+  }
+
+  function netHandle(msg) {
+    if (msg.k === "lvl") {
+      // el anfitrión dicta la cancha: aplicarla tal cual
+      state.level = msg.l;
+      state.farm.turn = msg.t;
+      SCENARIOS.granja.thrower = msg.t;
+      net.forced = msg;
+      placeLevel();
+      setWind();
+      net.forced = null;
+      applyScenario();
+      ui.levelTxt.textContent = state.level;
+      netUpdateTurnChip();
+    } else if (msg.k === "shot") {
+      // tiro del otro jugador: mismos números → misma trayectoria acá
+      ui.angle.value = msg.a; ui.yaw.value = msg.y; ui.power.value = msg.p;
+      syncSlider(ui.angle, ui.angleOut, "°");
+      syncSlider(ui.yaw, ui.yawOut, "°");
+      syncSlider(ui.power, ui.powerOut, "");
+      net.remoteShot = true;
+      throwBanana();
+      net.remoteShot = false;
+    } else if (msg.k === "bye") {
+      netStatus("cortado");
+      showBanner("👥 SE CORTÓ", "El otro jugador se fue de la partida", 2600);
+      net.on = false;
+      netUpdateTurnChip();
+    }
+  }
+
+  // el anfitrión reparte cada nivel nuevo; el invitado espera el suyo
+  function netAfterNewLevel() {
+    if (!net.on || net.status !== "conectado") return;
+    if (scen().target !== "plush") return;
+    netUpdateTurnChip();
+    if (!net.isHost) return;
+    const k = state.basket;
+    netSend({
+      k: "lvl", l: state.level, t: state.farm.turn,
+      px: state.thrower.x, pz: state.thrower.z,
+      tx: k.x, tz: k.z, w: state.wind, wz: state.windZ,
+    });
+  }
+
+  function netWireChannel(dc) {
+    net.dc = dc;
+    dc.onopen = () => {
+      net.on = true;
+      netStatus("conectado", "👥 ¡Conectados!");
+      netOverlay.classList.remove("show");
+      net.score.me = net.score.them = 0;
+      showBanner("👥 ¡A JUGAR DE A DOS!",
+        net.isHost ? "Manejás la vaquita 🐄 · empezás vos" : "Manejás el perrito 🐶 · empieza la vaquita", 3000);
+      if (net.isHost) {
+        state.farm.turn = "cow";
+        SCENARIOS.granja.thrower = "cow";
+        switchScenario("granja");
+        state.level = 1;
+        newLevel(true);      // reparte el nivel al otro
+      } else {
+        switchScenario("granja");
+      }
+      netUpdateTurnChip();
+    };
+    dc.onmessage = (e) => { try { netHandle(JSON.parse(e.data)); } catch (err) {} };
+    dc.onclose = () => {
+      if (!net.on) return;
+      net.on = false;
+      netStatus("cortado");
+      netUpdateTurnChip();
+      showBanner("👥 SE CORTÓ", "Se perdió la conexión con el otro jugador", 2600);
+    };
+  }
+  function netNewPC() {
+    if (net.pc) { try { net.pc.close(); } catch (e) {} }
+    const pc = new RTCPeerConnection({ iceServers: ICE });
+    net.pc = pc;
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "failed") {
+        netStatus("cortado", "😕 No se pudo conectar");
+        netBody.innerHTML = '<p class="netMsg">No se pudo abrir la conexión. Suele pasar entre dos redes móviles distintas: probá con los dos en el mismo WiFi.</p>';
+      }
+    };
+    return pc;
+  }
+
+  // ---------- crear partida (anfitrión): genera la invitación
+  async function netCreateOffer() {
+    net.isHost = true;
+    net.myChar = "cow";
+    const pc = netNewPC();
+    netWireChannel(pc.createDataChannel("juego", { ordered: true }));
+    await pc.setLocalDescription(await pc.createOffer());
+    await iceComplete(pc);
+    netStatus("esperando");
+    return packSDP(pc.localDescription);
+  }
+  // ---------- unirse: procesa la invitación y devuelve la respuesta
+  async function netAcceptOffer(txt) {
+    net.isHost = false;
+    net.myChar = "pup";
+    const pc = netNewPC();
+    pc.ondatachannel = (e) => netWireChannel(e.channel);
+    await pc.setRemoteDescription(await unpackSDP(txt));
+    await pc.setLocalDescription(await pc.createAnswer());
+    await iceComplete(pc);
+    netStatus("conectando");
+    return packSDP(pc.localDescription);
+  }
+  // ---------- el anfitrión cierra el trato con la respuesta del otro
+  async function netAcceptAnswer(txt) {
+    await net.pc.setRemoteDescription(await unpackSDP(txt));
+    netStatus("conectando");
+  }
+  function netHangUp() {
+    netSend({ k: "bye" });
+    net.on = false;
+    if (net.pc) { try { net.pc.close(); } catch (e) {} }
+    net.pc = net.dc = null;
+    netStatus("idle");
+    netUpdateTurnChip();
+  }
+
+  // ---------- QR: dibujar y escanear (las librerías se cargan al abrir)
+  let qrLibsP = null;
+  function loadScriptOnce(src) {
+    return new Promise((res, rej) => {
+      if (document.querySelector(`script[src="${src}"]`)) return res();
+      const s = document.createElement("script");
+      s.src = src; s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+  function loadQRLibs() {
+    if (!qrLibsP) {
+      qrLibsP = Promise.all([
+        loadScriptOnce("vendor/qrcode.js"),
+        // jsQR solo hace falta donde no existe BarcodeDetector (iPhone, Firefox)
+        "BarcodeDetector" in window ? Promise.resolve() : loadScriptOnce("vendor/jsQR.js"),
+      ]);
+    }
+    return qrLibsP;
+  }
+  function drawQR(text, el) {
+    try {
+      const qr = qrcode(0, "L");      // versión automática, corrección baja = más datos
+      qr.addData(text);
+      qr.make();
+      el.innerHTML = qr.createImgTag(4, 8);
+      const img = el.querySelector("img");
+      // el <img> del generador trae width/height fijos: hay que soltar el alto
+      // para que no salga estirado al escalarlo
+      if (img) { img.style.width = "100%"; img.style.height = "auto"; img.style.imageRendering = "pixelated"; }
+      return true;
+    } catch (e) {
+      el.innerHTML = '<p class="netMsg">El código es muy largo para un QR: usá el botón de copiar y mandalo por WhatsApp.</p>';
+      return false;
+    }
+  }
+  let scanStop = null;
+  async function scanQR(holder, onFound) {
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    } catch (e) {
+      holder.innerHTML = '<p class="netMsg">No pude abrir la cámara. Usá la opción de pegar el código.</p>';
+      return;
+    }
+    const video = document.createElement("video");
+    video.playsInline = true; video.muted = true; video.srcObject = stream;
+    video.style.width = "100%"; video.style.borderRadius = "12px";
+    holder.innerHTML = "";
+    holder.appendChild(video);
+    await video.play().catch(() => {});
+    const canvas = document.createElement("canvas");
+    const cg = canvas.getContext("2d", { willReadFrequently: true });
+    const detector = "BarcodeDetector" in window ? new BarcodeDetector({ formats: ["qr_code"] }) : null;
+    let alive = true;
+    scanStop = () => {
+      alive = false;
+      stream.getTracks().forEach((t) => t.stop());
+      scanStop = null;
+    };
+    const tick = async () => {
+      if (!alive) return;
+      if (video.videoWidth) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        cg.drawImage(video, 0, 0);
+        let found = null;
+        try {
+          if (detector) {
+            const codes = await detector.detect(canvas);
+            if (codes.length) found = codes[0].rawValue;
+          } else if (window.jsQR) {
+            const img = cg.getImageData(0, 0, canvas.width, canvas.height);
+            const r = jsQR(img.data, img.width, img.height);
+            if (r) found = r.data;
+          }
+        } catch (e) { /* seguir intentando */ }
+        if (found) { scanStop(); onFound(found); return; }
+      }
+      setTimeout(tick, 180);
+    };
+    tick();
+  }
+
+  // ---------- pantallas del overlay
+  const shareText = (code, kind) =>
+    `${location.origin}${location.pathname}#${kind}=${code}`;
+  function netCopy(txt, btn) {
+    const done = () => { const t = btn.textContent; btn.textContent = "✅ ¡Copiado!"; setTimeout(() => (btn.textContent = t), 1600); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(done, () => prompt("Copiá el código:", txt));
+    } else {
+      prompt("Copiá el código:", txt);
+    }
+  }
+  function netScreenHome() {
+    if (scanStop) scanStop();
+    netTitle.textContent = "👥 Jugar de a dos";
+    netBody.innerHTML = `
+      <p class="netMsg">Dos jugadores, cada uno en su teléfono, en la granja: la vaquita 🐄 contra el perrito 🐶. La conexión es directa entre los dos, sin servidores.</p>
+      <div class="netBtns">
+        <button class="netBtn" id="netCreate">🎬 Crear partida</button>
+        <button class="netBtn" id="netJoin">🙋 Unirme a una partida</button>
+      </div>
+      ${net.on ? '<div class="netBtns"><button class="netBtn netDanger" id="netQuit">✖️ Terminar la partida</button></div>' : ""}`;
+    document.getElementById("netCreate").onclick = netScreenCreate;
+    document.getElementById("netJoin").onclick = () => netScreenJoin();
+    const q = document.getElementById("netQuit");
+    if (q) q.onclick = () => { netHangUp(); netScreenHome(); };
+  }
+  async function netScreenCreate() {
+    netTitle.textContent = "🎬 Invitá al otro jugador";
+    netBody.innerHTML = '<p class="netMsg">Generando la invitación…</p>';
+    await loadQRLibs();
+    const code = await netCreateOffer();
+    const link = shareText(code, "inv");
+    netBody.innerHTML = `
+      <div class="netSplit">
+        <div class="netQR" id="netQRBox"></div>
+        <div class="netSplitCol">
+          <p class="netMsg"><b>1.</b> Que el otro escanee el código — o mandale el link por WhatsApp.</p>
+          <button class="netBtn" id="netCopyInv" data-link="${link}">📋 Copiar link</button>
+          <p class="netMsg"><b>2.</b> Cuando te pase su respuesta:</p>
+          <button class="netBtn" id="netScanAns">📷 Escanear respuesta</button>
+          <textarea class="netInput" id="netAnsIn" placeholder="…o pegala acá"></textarea>
+          <button class="netBtn" id="netGo">🤝 Conectar</button>
+        </div>
+      </div>
+      <div id="netScanBox"></div>`;
+    drawQR(code, document.getElementById("netQRBox"));   // el QR lleva solo el código: entra más chico
+    document.getElementById("netCopyInv").onclick = (e) => netCopy(link, e.target);
+    document.getElementById("netScanAns").onclick = () =>
+      scanQR(document.getElementById("netScanBox"), (txt) => netFinish(txt));
+    document.getElementById("netGo").onclick = () => netFinish(document.getElementById("netAnsIn").value);
+  }
+  async function netFinish(txt) {
+    if (!txt || !txt.trim()) return;
+    netBody.innerHTML = '<p class="netMsg">Conectando…</p>';
+    try { await netAcceptAnswer(txt); }
+    catch (e) { netBody.innerHTML = '<p class="netMsg">Ese código no se entiende. Fijate de copiarlo completo.</p>'; }
+  }
+  async function netScreenJoin(pre) {
+    netTitle.textContent = "🙋 Unirme a una partida";
+    netBody.innerHTML = `
+      <p class="netMsg">Escaneá el código del otro jugador, o pegá acá el link que te mandó:</p>
+      <div class="netBtns"><button class="netBtn" id="netScanInv">📷 Escanear invitación</button></div>
+      <textarea class="netInput" id="netInvIn" placeholder="pegá acá el link…">${pre || ""}</textarea>
+      <div class="netBtns"><button class="netBtn" id="netJoinGo">🤝 Continuar</button></div>
+      <div id="netScanBox"></div>`;
+    await loadQRLibs();
+    document.getElementById("netScanInv").onclick = () =>
+      scanQR(document.getElementById("netScanBox"), (txt) => netScreenAnswer(txt));
+    document.getElementById("netJoinGo").onclick = () => netScreenAnswer(document.getElementById("netInvIn").value);
+    if (pre) netScreenAnswer(pre);
+  }
+  async function netScreenAnswer(txt) {
+    if (!txt || !txt.trim()) return;
+    if (scanStop) scanStop();
+    netTitle.textContent = "🙋 Devolvé tu respuesta";
+    netBody.innerHTML = '<p class="netMsg">Preparando la respuesta…</p>';
+    let code;
+    try { code = await netAcceptOffer(txt); }
+    catch (e) {
+      netBody.innerHTML = '<p class="netMsg">Esa invitación no se entiende. Fijate de copiarla completa.</p>';
+      return;
+    }
+    const link = shareText(code, "res");
+    netBody.innerHTML = `
+      <div class="netSplit">
+        <div class="netQR" id="netQRBox2"></div>
+        <div class="netSplitCol">
+          <p class="netMsg">Último paso: que el otro escanee <b>este</b> código, o mandale el link. Apenas lo cargue, arranca la partida.</p>
+          <button class="netBtn" id="netCopyAns" data-link="${link}">📋 Copiar respuesta</button>
+        </div>
+      </div>`;
+    drawQR(code, document.getElementById("netQRBox2"));
+    document.getElementById("netCopyAns").onclick = (e) => netCopy(link, e.target);
+  }
+
+  netBtn.addEventListener("click", () => {
+    netScreenHome();
+    netOverlay.classList.add("show");
+  });
+  netOverlay.addEventListener("click", (e) => {
+    if (e.target === netOverlay) { if (scanStop) scanStop(); netOverlay.classList.remove("show"); }
+  });
+  // si el link trae una invitación, abrir directo la pantalla de unirse
+  if (/#inv=/.test(location.hash)) {
+    const pre = location.hash;
+    history.replaceState(null, "", location.pathname);
+    setTimeout(() => { netOverlay.classList.add("show"); netScreenJoin(pre); }, 900);
+  } else if (/#res=/.test(location.hash)) {
+    // el anfitrión abrió el link de respuesta en la misma pestaña
+    const pre = location.hash;
+    history.replaceState(null, "", location.pathname);
+    if (net.pc) setTimeout(() => netFinish(pre), 300);
+  }
+
   window.addEventListener("keydown", (e) => {
     const bump = (input, delta, out, suffix) => {
       input.value = Math.min(+input.max, Math.max(+input.min, +input.value + delta));
@@ -6197,6 +6715,18 @@
       total: LIVING_ITEMS.length,
       collisions: !!navObstacles,
     }),
+    // costura de test de la partida de a dos: permite hacer el intercambio
+    // de invitación/respuesta desde el test, sin QR ni copiar-pegar
+    net: {
+      state: () => ({
+        on: net.on, isHost: net.isHost, status: net.status,
+        myChar: net.myChar, myTurn: netMyTurn(), score: { ...net.score },
+      }),
+      createOffer: () => netCreateOffer(),
+      acceptOffer: (t) => netAcceptOffer(t),
+      acceptAnswer: (t) => netAcceptAnswer(t),
+      hangUp: () => netHangUp(),
+    },
   };
   onResize();
   resetView();

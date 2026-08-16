@@ -46,7 +46,17 @@ module.exports = defineConfig({
     viewport: { width: 844, height: 390 },   // celular apaisado
     launchOptions: {
       executablePath: resolveChromium(),
-      args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+      args: [
+        "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader",
+        // WebRTC entre dos pestañas del test: sin ofuscar las IPs locales por
+        // mDNS, los candidatos de loopback conectan directo
+        "--disable-features=WebRtcHideLocalIpsWithMdns",
+        // el test de a dos necesita que las DOS pestañas sigan animando aunque
+        // solo una esté en primer plano (si no, la física queda congelada)
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+      ],
     },
   },
   // servidor estático que sirve el juego (y permite falsear version.json)

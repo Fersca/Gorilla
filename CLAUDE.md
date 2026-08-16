@@ -34,7 +34,11 @@ son en **español rioplatense**. Publicado en <https://fersca.github.io/Gorilla/
   Renders (`setRenders`: vitrina de .glb importados de `assets/models/` vía
   `THREE.GLTFLoader` vendoreado — ojo: no cargan por `file://`, usar http) y
   modo Living (`setLiving`: el living de la casa con muebles Kenney CC0 en
-  `assets/models/living/`, paseo con colisiones vía `navObstacles`+raycast).
+  `assets/models/living/`, paseo con colisiones vía `navObstacles`+raycast) y
+  partida **de a dos** (`net`: WebRTC P2P sin servidor — el SDP se comprime
+  con `CompressionStream` y se pasa por QR o link; el anfitrión reparte la
+  cancha vía `net.forced` y por la red solo viajan ángulo/giro/fuerza porque
+  la física es determinista).
 - **Gotcha**: el `boxGeo` compartido está **anclado a la base**
   (`translate(0, 0.5, 0)`, va de y=0 a 1): al escalarlo, posicionar en y=0,
   NO en h/2. Los materiales de Kenney usan textura-atlas + colores por

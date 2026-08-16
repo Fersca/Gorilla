@@ -53,6 +53,13 @@ juego se lee y se manipula por ahí.
   anti-loop en sessionStorage); botón Instalar visible solo en navegador
   (oculto simulando Capacitor y PWA standalone). El servidor de tests sirve
   `tests/.version-override` como `/version.json` para simular versiones.
+- **`net.spec.js`** — partida de a dos: abre **dos páginas** y hace de
+  "WhatsApp" pasando la invitación y la respuesta entre ellas (vía
+  `window.__game.net`), conectando WebRTC de verdad por loopback. Verifica
+  roles, cancha idéntica en los dos, el tiro replicado y el cambio de turno.
+  Necesita los flags anti-throttling de `playwright.config.js`: sin ellos la
+  pestaña de atrás congela su `requestAnimationFrame` y la física no avanza.
+- **`living.spec.js`** — el living: carga de muebles y colisiones del paseo.
 - **`tools/screenshots.js`** — utilitario (no es un test): regenera las
   capturas del README (`screenshots/*.png`), una por escenario.
 
