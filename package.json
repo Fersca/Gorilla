@@ -1,0 +1,20 @@
+{
+  "name": "apunto-y-tiro",
+  "version": "1.0.0",
+  "description": "Apunto y Tiro — homenaje 3D a GORILLA.BAS. PWA + apps nativas con Capacitor.",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "build:www": "node scripts/build-www.js",
+    "sync:android": "npm run build:www && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "@playwright/test": "^1.62.1"
+  }
+}

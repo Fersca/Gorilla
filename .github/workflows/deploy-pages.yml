@@ -1,0 +1,43 @@
+name: Deploy a GitHub Pages
+
+# Republica el juego en la rama gh-pages (de donde sirve GitHub Pages)
+# cada vez que se pushea a la rama de desarrollo o a main/master.
+on:
+  push:
+    branches:
+      - main
+      - master
+      - claude/gorila-banana-game-7db9ll
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # version.json se genera desde la constante GAME_VERSION del juego:
+      # una sola fuente de verdad para el detector de actualizaciones.
+      - name: Generar version.json
+        run: |
+          V=$(grep -oP 'const GAME_VERSION = \K[0-9]+' index.html)
+          echo "{\"version\": ${V}}" > version.json
+          echo "Publicando versión ${V}"
+
+      - name: Publicar en gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          touch .nojekyll
+          # rama huérfana con el contenido actual → push forzado a gh-pages
+          git checkout --orphan gh-pages-deploy
+          git add -A
+          git commit -m "Deploy ${GITHUB_SHA} a GitHub Pages"
+          git push origin gh-pages-deploy:gh-pages --force

@@ -1,0 +1,16 @@
+{
+  "name": "Apunto y Tiro",
+  "short_name": "Apunto y Tiro",
+  "description": "Homenaje 3D al clásico GORILLA.BAS: elegí ángulo, giro y fuerza para embocar en 6 escenarios — gorila, selva, básquet, arquero medieval, fútbol y salto en auto.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#0b0f24",
+  "theme_color": "#0b0f24",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
