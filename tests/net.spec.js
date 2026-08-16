@@ -91,12 +91,14 @@ test("dos navegadores se conectan P2P y juegan la misma partida", async ({ brows
   }
   expect(await host.evaluate(() => window.__game.net.state().myTurn)).toBe(false);
   expect(await guest.evaluate(() => window.__game.net.state().myTurn)).toBe(true);
-  // y la cancha del turno nuevo también es la misma para los dos
-  await expect.poll(() => sameBoard(host, guest), { timeout: 30_000 }).toBe(true);
 
-  // el invitado no puede tirar fuera de turno: ahora sí puede, el anfitrión no
+  // el botón se habilita recién cuando arranca el turno nuevo (durante el
+  // festejo/transición está bien que nadie pueda tirar): esperar a eso
+  await guest.waitForFunction(() => !document.getElementById("throwBtn").disabled, null, { timeout: 60_000 });
+  // y el anfitrión, que ya tiró, queda bloqueado hasta que le toque de nuevo
   expect(await host.evaluate(() => document.getElementById("throwBtn").disabled)).toBe(true);
-  expect(await guest.evaluate(() => document.getElementById("throwBtn").disabled)).toBe(false);
+  // la cancha del turno nuevo también es la misma para los dos
+  await expect.poll(() => sameBoard(host, guest), { timeout: 30_000 }).toBe(true);
 
   // cortar la partida se avisa del otro lado
   await host.evaluate(() => window.__game.net.hangUp());
